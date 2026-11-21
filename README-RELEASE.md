@@ -20,8 +20,11 @@ Safety:
 
 Known limitations:
 - Real external provider API calls need connected accounts/credentials and have not been exercised against a private project.
-- An experimental Linux E2E job now exercises Rails, PostgreSQL, Redis and direct-mode Puma; its results must be verified on GitHub Actions. Portless HTTPS remains out of scope for this E2E job.
+- Hosted CI has passed Rails/PostgreSQL/Redis on Ubuntu and Rails/Portless HTTPS on macOS using synthetic fixtures.
 - Existing legacy project-specific setup must stay on its previous local Gitwo version until migrated and verified.
 - Source checkout must remain on its configured branch. No automatic mutation of that branch.
 
-Release hardening (2026-11-21): MIT license, strict data parsing for state and ports, verified TLS health checks, and macOS Portless HTTPS E2E. See docs/release-security-review.md.
+Release hardening (2026-11-21): MIT license, strict data parsing for state and ports, verified TLS health checks, and macOS Portless HTTPS E2E workflow. See docs/release-security-review.md.
+
+Release CI hardening: consolidated SHA-pinned workflow, fail-fast dependency policy,
+Rails fixture updated to 7.2.4, no duplicate PR branch runs, and dependency inventory.

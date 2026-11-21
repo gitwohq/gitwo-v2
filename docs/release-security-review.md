@@ -1,30 +1,44 @@
-# Targeted security review - 2026-11-21
+# Gitwo release security review (2026-11-21)
 
-Reviewed the Bash/Ruby CLI, installer, YAML loader, provider credentials,
-workspace state, port allocation and Rails/Portless integration. This is
-**not** an independent security audit or penetration test.
+## Scope
 
-## Findings fixed
-- Workspace .env state was executed with source. It is now parsed as literal
-  allowlisted values, with duplicate/unknown keys refused.
-- Runtime .ports was executed with source. Ports are now read as validated
-  numeric data rather than shell commands.
-- status --check-http used curl -k. HTTPS health checks now use the
-  Portless CA or the operating-system trust store.
-- New regression coverage exercises malicious runtime metadata.
+Reviewed the Bash/Ruby CLI entrypoints, installers, project YAML parser,
+credential loader, workspace state, runtime ports and Rails/Portless bridge.
+This is a targeted code review, not a formal third-party penetration test.
 
-## Existing safeguards reviewed
-- Credential files require owner-only permissions and are separate from YAML.
-- YAML is safely parsed and configuration values are validated.
-- PostgreSQL endpoint is restricted to loopback by default.
-- Sidekiq remains opt-in; destructive database operations require confirmation.
-- Installations use checksums, staged copies, symlink checks and backups.
+## Findings and fixes
+
+- **Fixed:** workspace `.env` state was evaluated by `source`, allowing local
+  metadata content to execute commands. It is now parsed through a strict
+  allowlist of generated keys and literal values.
+- **Fixed:** runtime `.ports` data was evaluated by `source`. The existing
+  numerical validation is now combined with key-specific data parsing.
+- **Fixed:** `status --check-http` disabled certificate verification using
+  `curl -k`. It now validates the Portless CA or OS trust store.
+- **Added:** regression test with malicious state payloads that must never run.
+- **Verified:** API credentials are separated from versioned YAML and private
+  credential files must be owner-only. YAML parsing uses safe loading.
+- **Verified:** database hosts are constrained to loopback and automatic
+  Sidekiq execution remains disabled by default.
+- **Verified:** installer checks file hashes, refuses symlinked install targets
+  and stages the package before replacing the installed copy.
 
 ## Residual risks
-- Rails seeds/tasks, dependencies and native tools are arbitrary user-level
-  code by design. Gitwo is not a sandbox.
-- Portless adds a local CA and may use sudo; only run on trusted machines.
-- Installer hashes from the same download detect corruption, not a malicious
-  publisher. Signed releases and pinned Action SHAs are future hardening.
-- CI uses a synthetic Rails app, not private customer code or credentials.
-- macOS Portless HTTPS is not verified until the new hosted workflow succeeds.
+
+- Trusted Rails tasks, seeds, Bundler hooks, Sidekiq jobs, native executables,
+  and third-party tools are still arbitrary developer-level code by design.
+- Portless adds a local CA to the trust store and may elevate privileges to
+  bind port 443. Run it only after reviewing the host trust implications.
+- Manual `gitwo run rails ...` tasks are not an application-level sandbox.
+- Downloading a package with a checksum manifest from the **same untrusted
+  source** detects corruption, not malicious publication. Releases should
+  include signed provenance and pinned dependencies in a later milestone.
+- GitHub Actions are pinned to reviewed full commit SHAs. Remaining floating dependencies include OS package indexes, the PostgreSQL 16
+  container image, and dynamically resolved RubyGems transitive dependencies.
+- The integration suite exercises a synthetic Rails app, not customer code or
+  private provider credentials.
+
+## Release gate
+
+Portless HTTPS E2E passed on hosted macOS and Rails/PostgreSQL/Redis E2E passed on hosted Ubuntu.
+The fixture is synthetic, and no independent security audit has been performed. Do not claim all security risks are eliminated.

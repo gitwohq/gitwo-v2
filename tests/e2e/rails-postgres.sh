@@ -26,8 +26,8 @@ command -v redis-server >/dev/null || { echo 'Missing Redis server' >&2; exit 2;
 pg_isready -h "${PGHOST:-127.0.0.1}" -U "${PGUSER:?}" -d postgres
 
 # A real Rails installation is required: do not mock ActiveRecord, Bundler or Puma.
-gem install rails --version '7.2.3' --no-document
-rails _7.2.3_ new "$app" --database=postgresql --skip-git --skip-bundle \
+gem install rails --version '7.2.4' --no-document
+rails _7.2.4_ new "$app" --database=postgresql --skip-git --skip-bundle \
   --skip-javascript --skip-hotwire --skip-jbuilder --skip-test --skip-system-test \
   --skip-docker --skip-kamal > "$work/rails-new.log"
 cd "$app"

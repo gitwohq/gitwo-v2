@@ -1,17 +1,10 @@
 # Gitwo
 
-Gitwo manages isolated local development environments backed by Git worktrees.
+Gitwo is a Bash/Ruby CLI for isolated local development environments using Git worktrees.
+The current pre-release focuses on Rails, PostgreSQL, Redis and optional Portless HTTPS.
+It supports Jira, Linear, GitHub Issues, or no issue tracker.
 
-The current implementation is a Bash/Ruby prototype focused on Rails and PostgreSQL.
-This repository is the universal, project-agnostic successor to earlier local scripts.
-It does not migrate or modify existing per-project installations.
-
-## Requirements
-
-Git, Bash, Ruby 3.3, and (for full Rails workflows) PostgreSQL, Redis and Rails.
-Portless is optional.
-
-## Install
+## Install (development snapshot)
 
 ```sh
 bash install.sh
@@ -20,11 +13,7 @@ source "$HOME/.local/share/gitwo/shell.zsh"
 gitwo --version
 ```
 
-The installer verifies `SHA256SUMS` and creates a backup before replacing a prior installation.
-
-## Initialize a project
-
-From a Rails checkout:
+From a trusted Rails checkout:
 
 ```sh
 gitwo detect
@@ -34,14 +23,13 @@ gitwo new develop --no-setup
 gitwo list --json
 ```
 
-Gitwo uses auto-detection and lets you review Git workflow, issue tracker and
-runtime settings. `gitwo init --yes` is available for noninteractive setup.
-Issue providers: Jira, Linear, GitHub Issues, or none.
+Full Rails setup uses local PostgreSQL, Ruby/Bundler, mise and, when configured,
+Redis and Portless. `gitwo doctor --deps` checks the local prerequisites.
 
-## Everyday commands
+## Everyday workflow
 
 ```sh
-gitwo new feature ENG-123 --no-setup
+gitwo new feature ENG-123
 gitwo up
 gitwo status
 gitwo logs
@@ -49,31 +37,27 @@ gitwo down
 gitwo remove --dry-run
 ```
 
-For complete help run `gitwo --help` or `gitwo help new`.
-
-## State and safety
-
-New projects store workspaces separately from the main Git checkout.
-Per-project runtime metadata is under `~/.local/state/gitwo/projects/`.
-Credentials are stored separately from committed `gitwo.yml`.
-An existing per-project installation is not migrated automatically.
-
-Database replacement and worktree removal require explicit confirmation.
-Inspect commands and dry-run modes before destructive operations.
+Do not run unknown project code or Rails seeds outside a trusted checkout.
+Existing legacy project installations and PostgreSQL databases are not migrated.
 
 ## Development and CI
 
 ```sh
+bash tests/check-dependencies.sh
 bash gitwo/test-all.sh
 bash test-installer.sh
 ```
 
-GitHub Actions runs smoke and provider tests on Ubuntu and macOS.
-A separate Linux Rails/PostgreSQL/Redis E2E workflow is included; until it passes,
-the project should be considered pre-release.
+[Gitwo CI](.github/workflows/ci.yml) runs checks in ascending resource-cost order:
+static/dependency audit, Linux regression, macOS regression, Linux Rails E2E,
+and macOS Rails+Portless HTTPS E2E. The Linux E2E overlaps the lightweight
+macOS regression to reduce overall time; the expensive macOS HTTPS job is gated
+by both. All GitHub Actions are full-commit-SHA pinned.
 
-See [release notes](README-RELEASE.md) and [Gitwo docs](gitwo/README.md).
+Both Ubuntu Rails/PostgreSQL/Redis and macOS Portless HTTPS fixtures passed in
+GitHub Actions on 2026-11-21. The tests use synthetic data, not private code.
+The project is still pre-release until the release artifact is tested.
 
-## License and security
-
-Released under the [MIT License](LICENSE). Review [SECURITY.md](SECURITY.md) before running the tool on projects you do not trust. See [release security review](docs/release-security-review.md).
+Read the [dependency inventory](docs/dependencies.md),
+[security policy](SECURITY.md), [security review](docs/release-security-review.md),
+and [release notes](README-RELEASE.md). License: [MIT](LICENSE).
