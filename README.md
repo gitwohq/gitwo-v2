@@ -69,4 +69,7 @@ Prefer `gitwo workspace create feature ENG-123`. With [direnv](https://direnv.ne
 installed and allowed for the generated untracked `.envrc`, native Rails,
 RSpec and Minitest commands work in the selected worktree without `gitwo run`.
 Gitwo verifies separate development and test database configurations before
-creating the activation file. See [workspace activation](docs/workspace-activation.md).
+creating the activation file. Conventional Rails configurations can be prepared
+with `gitwo workspace env integrate --dry-run` and explicitly updated with
+`--apply` after review. The `verify` command does not allocate ports or start Redis.
+See [workspace activation](docs/workspace-activation.md).

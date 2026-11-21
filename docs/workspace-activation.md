@@ -10,29 +10,43 @@ Rails sees the same `DATABASE_URL` in development and test if it is exported for
 the whole directory. Exporting a development URL unconditionally is unsafe:
 `bin/rails test` or `bundle exec rspec` could use or reset the development DB.
 
-Instead, make your application's tracked `config/database.yml` choose a database
-per environment. For a simple PostgreSQL configuration, the relevant entries can
-look like this (retain your application's existing `default` settings):
+For a conventional PostgreSQL `config/database.yml`, Gitwo can preview a
+**one-time, explicit, reviewable** integration. From the primary Rails checkout:
+
+```sh
+gitwo workspace env integrate --dry-run
+# Preview only; no files, ports or services change.
+
+gitwo workspace env integrate --apply
+# Explicitly updates only development/test `database:` entries.
+git diff -- config/database.yml
+# Review and commit the change before creating feature worktrees.
+```
+
+This opt-in operation preserves the application's original database names as
+fallbacks when Gitwo is inactive, and saves a private backup outside the Git
+repository. It refuses dirty, symlinked, ERB-customized, URL-based or
+multi-database configurations rather than guessing. It does not commit changes.
+
+The resulting conventional configuration has entries like:
 
 ```yaml
-# Existing settings such as adapter, pool, encoding remain unchanged.
 development:
   <<: *default
   database: <%= ENV.fetch("GITWO_DB_DEV", "my_app_development") %>
-
 test:
   <<: *default
   database: <%= ENV.fetch("GITWO_DB_TEST", "my_app_test") %>
 ```
 
-Replace the fallback names with your actual Rails database names. Applications
-using a `url:` entry can instead select `GITWO_DEV_DATABASE_URL` and
-`GITWO_TEST_DATABASE_URL` per environment. These are **nonsecret local URLs**;
-libpq uses `PGHOST`, `PGPORT`, `PGUSER`, and your existing credential mechanism.
+For complex Rails configurations, perform the integration manually and preserve
+the app's existing connection settings. Applications using a `url:` entry can
+select `GITWO_DEV_DATABASE_URL` and `GITWO_TEST_DATABASE_URL` per environment.
+These local URLs contain no password; libpq uses `PGHOST`, `PGPORT`, `PGUSER`
+and your existing credential mechanism.
 
-Gitwo **does not modify tracked database.yml**. The one-time integration can be
-committed and is backward compatible because the environment variables are
-absent outside Gitwo workspaces.
+Gitwo **never edits tracked database.yml during workspace creation, setup,
+verification, or direnv activation**. Only `integrate --apply` can do so.
 
 ## 2. Create and initialize a workspace
 
@@ -49,12 +63,15 @@ activation file. Fix the app config and run:
 gitwo workspace env init
 ```
 
-This reserves workspace ports, optionally starts isolated Redis when configured,
+`init` reserves workspace ports, optionally starts isolated Redis when configured,
 verifies both Rails database targets, then creates an ignored local `.envrc`.
+`verify` requires pre-existing port allocations and does not start services,
+create files, or modify Gitwo-managed state. Both commands boot the trusted Rails
+application to inspect ActiveRecord; app initializers might have side effects.
 Existing `.envrc` files are left untouched. If a project already tracks an
 `.envrc`, review it and add the displayed `source_env` line yourself.
 
-To inspect again without writing `.envrc`:
+To inspect again without writing `.envrc` or allocating ports or starting Redis:
 
 ```sh
 gitwo workspace env verify
@@ -99,13 +116,24 @@ Workspace-specific variables include `GITWO_DB_DEV`, `GITWO_DB_TEST`,
 Neither `RAILS_ENV` nor `DATABASE_URL` is exported, allowing Rails test runners
 to choose test naturally. This is intentional and must not be "simplified".
 
-**Redis requires similar application-level environment selection.** Gitwo does
-not globally export `REDIS_URL` or `SIDEKIQ_REDIS_URL`, because tests may clear
-those Redis databases. Configure your Rails Redis clients to choose
-`GITWO_TEST_REDIS_URL` in `Rails.env.test?`, otherwise
-`GITWO_DEV_REDIS_URL`. Outside Gitwo, preserve your normal Redis fallback.
-Sidekiq workers can execute external integrations, so only start trusted workers
-once their application configuration is verified.
+**Redis requires application-level environment selection.** Gitwo does
+not globally export `REDIS_URL` or `SIDEKIQ_REDIS_URL`, because test suites may
+clear them. For a Redis client, an illustrative Rails configuration is:
+
+```ruby
+workspace_redis_url = if ENV.key?("GITWO_DEV_REDIS_URL") && ENV.key?("GITWO_TEST_REDIS_URL")
+  Rails.env.test? ? ENV.fetch("GITWO_TEST_REDIS_URL") : ENV.fetch("GITWO_DEV_REDIS_URL")
+else
+  ENV.fetch("REDIS_URL", "redis://127.0.0.1:6379/0")
+end
+```
+
+Pass `workspace_redis_url` to your app's Redis/cache/Sidekiq clients as
+appropriate; the exact integration depends on the application's own settings.
+Do not blindly change tracked Redis initializers. Sidekiq workers can invoke
+external services, so only start trusted workers after reviewing integrations.
+The hosted Rails E2E verifies a real Redis client can use distinct development
+and test instances and that the test suite preserves a development-only key.
 
 Your Ruby version must be installed with mise. The activation loader adds the
 selected Ruby's `bin/` directory to `PATH` without altering tracked files.
