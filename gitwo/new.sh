@@ -230,7 +230,8 @@ if [[ "$resume" == no ]]; then
   (umask 077; date -u '+%Y-%m-%dT%H:%M:%SZ' > "$created_marker")
 fi
 if [[ "$setup" == yes ]]; then
-  args=("$target" "--db=$db")
+  args=("$target")
+  [[ "$db" == dump ]] || args+=("--db=$db")
   [[ "$tests" == yes ]] && args+=(--test)
   [[ "$seed" == yes ]] && args+=(--seed)
   [[ "$seed" == no ]] && args+=(--no-seed)
