@@ -26,7 +26,7 @@ trap 'rm -rf -- "$stage"' EXIT
 cp -R "$package/gitwo/." "$stage/"
 cp -R "$package/bin" "$stage/launcher"
 chmod +x "$stage"/*.sh "$stage/launcher/gitwo"
-"$stage/doctor.sh" >/dev/null
+(cd "$stage" && ./doctor.sh >/dev/null)
 stamp="$(date +%Y%m%d-%H%M%S)-$$"
 if [[ -d "$prefix/share/gitwo" ]]; then
   backup="$prefix/share/gitwo.backup-$stamp"
