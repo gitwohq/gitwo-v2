@@ -62,3 +62,11 @@ The project is still pre-release until the release artifact is tested.
 Read the [dependency inventory](docs/dependencies.md),
 [security policy](SECURITY.md), [security review](docs/release-security-review.md),
 and [release notes](README-RELEASE.md). License: [MIT](LICENSE).
+
+## Workspace activation
+
+Prefer `gitwo workspace create feature ENG-123`. With [direnv](https://direnv.net/)
+installed and allowed for the generated untracked `.envrc`, native Rails,
+RSpec and Minitest commands work in the selected worktree without `gitwo run`.
+Gitwo verifies separate development and test database configurations before
+creating the activation file. See [workspace activation](docs/workspace-activation.md).

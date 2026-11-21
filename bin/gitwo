@@ -16,8 +16,13 @@ case "$command" in
   init|detect) exec ruby "$root/onboard.rb" "$command" "$@" ;;
   workspace)
     action="${1:-}"; [[ $# -eq 0 ]] || shift
-    [[ "$action" == adopt ]] || { printf 'Usage: gitwo workspace adopt [WORKSPACE]\n' >&2; exit 2; }
-    exec "$root/init.sh" "$@" ;;
+    case "$action" in
+      create) exec "$root/new.sh" "$@" ;;
+      enter|checkout) exec "$root/checkout.sh" "$@" ;;
+      env) exec "$root/workspace-env.sh" "$@" ;;
+      adopt) exec "$root/init.sh" "$@" ;;
+      *) printf 'Usage: gitwo workspace <create|enter|env|adopt> ...\n' >&2; exit 2 ;;
+    esac ;;
   config|doctor|setup|status|list|logs|down|remove|open|env|dump|clean|repair|redis)
     exec "$root/$command.sh" "$@" ;;
   jira-init|jira-test) exec "$root/$command.sh" "$@" ;;

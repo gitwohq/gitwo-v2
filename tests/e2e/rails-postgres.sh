@@ -33,6 +33,27 @@ rails _7.2.4_ new "$app" --database=postgresql --skip-git --skip-bundle \
 cd "$app"
 # Keep the Ruby version identical for ruby/setup-ruby and mise.
 printf '3.3.14\n' > .ruby-version
+# Test standard RSpec and Rails Minitest commands without Gitwo's run wrapper.
+cat >> Gemfile <<'RUBY'
+group :test do
+  gem 'rspec-rails', '~> 7.1'
+end
+RUBY
+# Native commands require a one-time, environment-aware Rails database config.
+# Gitwo must never rewrite an application's tracked database.yml itself.
+ruby <<'RUBY'
+path = 'config/database.yml'
+text = File.read(path)
+{
+  'demo_app_development' => '<%= ENV.fetch("GITWO_DB_DEV", "demo_app_development") %>',
+  'demo_app_test' => '<%= ENV.fetch("GITWO_DB_TEST", "demo_app_test") %>'
+}.each do |old, value|
+  pattern = /^(\s*database: )#{Regexp.escape(old)}(\s*)$/
+  abort "Missing Rails database.yml entry: #{old}" unless text.match?(pattern)
+  text.sub!(pattern, "\\1#{value}\\2")
+end
+File.write(path, text)
+RUBY
 bundle install --quiet
 
 mkdir -p db/migrate app/models
@@ -85,6 +106,54 @@ cli="$install_prefix/bin/gitwo"
 # Exercise schema load, seed once, and isolated test DB creation.
 first="$($cli new develop --seed)"
 [[ "$(basename "$first")" == 'develop-1' ]]
+# Gitwo generated an untracked .envrc only after verifying both native DBs.
+[[ -f "$first/.envrc" ]]
+git -C "$first" check-ignore -q .envrc
+command -v direnv >/dev/null || { echo 'direnv missing in integration job' >&2; exit 2; }
+direnv allow "$first" >/dev/null
+# The caller deliberately has a development DATABASE_URL. direnv must remove
+# it before running any test command and restore it when leaving the workspace.
+fixture_database_url="$DATABASE_URL"
+cd "$first"
+eval "$(direnv export bash)"
+[[ "${GITWO_WORKSPACE:-}" == develop-1 ]]
+[[ ! ${DATABASE_URL+x} && ! ${RAILS_ENV+x} && ! ${REDIS_URL+x} ]]
+[[ "$GITWO_DB_DEV" == gitwo_fixture_develop_1_development ]]
+[[ "$GITWO_DB_TEST" == gitwo_fixture_develop_1_test ]]
+# Direct Rails development commands must not use the main checkout DB.
+bin/rails runner 'abort unless ActiveRecord::Base.connection_db_config.database == "gitwo_fixture_develop_1_development"' > "$work/native-dev.log"
+mkdir -p spec
+cat > spec/rails_helper.rb <<'RUBY'
+ENV['RAILS_ENV'] = 'test'
+require_relative '../config/environment'
+require 'rspec/rails'
+RUBY
+cat > spec/gitwo_native_spec.rb <<'RUBY'
+require 'rails_helper'
+RSpec.describe 'Gitwo native RSpec isolation' do
+  it 'uses the selected workspace test database' do
+    expect(ActiveRecord::Base.connection_db_config.database).to eq('gitwo_fixture_develop_1_test')
+    expect(Widget.create!(name: 'gitwo-rspec').persisted?).to be(true)
+  end
+end
+RUBY
+bundle exec rspec spec/gitwo_native_spec.rb > "$work/native-rspec.log"
+# Minitest likewise uses its own test database without a Gitwo wrapper.
+mkdir -p test/models
+cat > test/models/gitwo_native_test.rb <<'RUBY'
+require 'test_helper'
+class GitwoNativeTest < ActiveSupport::TestCase
+  test 'workspace test database' do
+    assert_equal 'gitwo_fixture_develop_1_test', ActiveRecord::Base.connection_db_config.database
+    assert Widget.create!(name: 'gitwo-minitest-native').persisted?
+  end
+end
+RUBY
+bin/rails test test/models/gitwo_native_test.rb > "$work/native-minitest.log"
+cd "$app"
+eval "$(direnv export bash)"
+[[ "${DATABASE_URL:-}" == "$fixture_database_url" ]]
+[[ ! ${GITWO_WORKSPACE+x} ]]
 # The generated Rails app uses Minitest. Ensure the CLI selects the isolated
 # test DB for both the explicit and auto-detected test commands.
 mkdir -p "$first/test/models"
@@ -99,7 +168,13 @@ class GitwoFixtureTest < ActiveSupport::TestCase
 end
 RUBY
 "$cli" run develop-1 minitest test/models/gitwo_fixture_test.rb > "$work/minitest.log"
-"$cli" run develop-1 test test/models/gitwo_fixture_test.rb > "$work/test-auto.log"
+# The fixture intentionally has both frameworks. Auto-detection must reject
+# ambiguity instead of silently running only one suite.
+if "$cli" run develop-1 test test/models/gitwo_fixture_test.rb > "$work/test-auto.log" 2> "$work/test-auto.err"; then
+  echo 'Expected explicit runner selection for mixed RSpec/Minitest project' >&2
+  exit 1
+fi
+grep -q 'Both Minitest and RSpec detected' "$work/test-auto.err"
 "$cli" status develop-1 --json > "$work/status-1.json"
 ruby -rjson -e 'x=JSON.parse(File.read(ARGV.fetch(0))); abort x.inspect unless x["data_source"] == "seeded"' "$work/status-1.json"
 [[ "$(psql -d gitwo_fixture_develop_1_development -Atqc "SELECT COUNT(*) FROM widgets WHERE name='gitwo-e2e-seeded'")" == 1 ]]
@@ -109,6 +184,17 @@ archive="$($cli dump create develop-1 --name=e2e-snapshot)"
 "$cli" dump inspect "$archive" > "$work/inspect.log"
 second="$($cli new develop --dump="$archive")"
 [[ "$(basename "$second")" == 'develop-2' ]]
+[[ -f "$second/.envrc" ]]
+direnv allow "$second" >/dev/null
+cd "$second"
+eval "$(direnv export bash)"
+[[ "${GITWO_WORKSPACE:-}" == develop-2 ]]
+[[ "$GITWO_DB_DEV" == gitwo_fixture_develop_2_development ]]
+[[ "$GITWO_DB_TEST" == gitwo_fixture_develop_2_test ]]
+bin/rails runner 'abort unless ActiveRecord::Base.connection_db_config.database == "gitwo_fixture_develop_2_development"' > "$work/native-second.log"
+cd "$app"
+eval "$(direnv export bash)"
+[[ "${DATABASE_URL:-}" == "$fixture_database_url" ]]
 [[ "$(psql -d gitwo_fixture_develop_2_development -Atqc "SELECT COUNT(*) FROM widgets WHERE name='gitwo-e2e-seeded'")" == 1 ]]
 
 # Running two workspaces must never change their permanent source checkout.
@@ -150,4 +236,4 @@ done
 "$cli" status develop-1 --check-http > "$work/health-status.log"
 "$cli" down develop-1
 "$cli" remove develop-2 --dry-run > "$work/remove-dry-run.log" 2>&1 || true
-printf '[PASS] real Rails+PostgreSQL+Redis E2E: two worktrees, Minitest, seeds, dump, restore, Puma, HTTP, down\n'
+printf '[PASS] real Rails+PostgreSQL+Redis E2E: two worktrees, native RSpec/Minitest, direnv isolation, seeds, dump/restore, Puma, HTTP, down\n'
