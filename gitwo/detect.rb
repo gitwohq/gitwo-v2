@@ -69,6 +69,11 @@ module GitwoDetection
     postgres = gemfile.match?(/\bgem\s*['\"]pg['\"]/) || db_config.match?(/adapter:\s*postgresql/) || lock.match?(/^    pg \(/)
     sidekiq = gemfile.match?(/\bgem\s*['\"]sidekiq['\"]/) || lock.match?(/^    sidekiq \(/) || File.file?(File.join(repo, 'config/sidekiq.yml'))
     redis = sidekiq || gemfile.match?(/\bgem\s*['\"]redis['\"]/) || lock.match?(/^    redis \(/) || File.file?(File.join(repo, 'config/redis.yml'))
+    # Detect file presence only. Do not execute or trust an application Compose file.
+    compose_files = %w[compose.yaml compose.yml docker-compose.yaml docker-compose.yml].select do |filename|
+      path = File.join(repo, filename)
+      File.file?(path) && !File.symlink?(path)
+    end
     seed_file = File.file?(File.join(repo, 'db/seeds.rb'))
     ruby_version = text(File.join(repo, '.ruby-version')).strip
     ruby_version = nil unless ruby_version.match?(/\A\d+\.\d+\.\d+\z/)
@@ -100,6 +105,7 @@ module GitwoDetection
         'database' => observed(postgres ? 'postgresql' : 'unknown', postgres ? 'Gemfile.lock / config/database.yml' : 'no PostgreSQL markers', postgres ? 'high' : 'low'),
         'sidekiq' => observed(!!sidekiq, sidekiq ? 'Gemfile.lock / config/sidekiq.yml' : 'not detected', sidekiq ? 'high' : 'low'),
         'redis' => observed(!!redis, redis ? 'Gemfile.lock / Sidekiq / config' : 'not detected', redis ? 'medium' : 'low'),
+        'compose_files' => observed(compose_files, compose_files.empty? ? 'no Compose file at repository root' : 'repository root filename inspection only', compose_files.empty? ? 'low' : 'high'),
         'seeds' => observed(seed_file, seed_file ? 'db/seeds.rb' : 'not detected', seed_file ? 'high' : 'low'),
         'ruby_version' => observed(ruby_version, ruby_version ? '.ruby-version' : 'not detected', ruby_version ? 'high' : 'low'),
         'git_provider' => observed(git_provider, remote.empty? ? 'no origin remote' : 'origin remote URL', remote.empty? ? 'low' : 'high'),
@@ -113,6 +119,7 @@ module GitwoDetection
         'issues' => { 'provider' => default_issues },
         'framework' => { 'name' => rails_markers ? 'rails' : 'unknown', 'sidekiq' => !!sidekiq, 'redis' => !!redis },
         'storage' => { 'dumps_directory' => 'dumps' },
+        'services' => { 'backend' => 'native' },
         'branches' => { 'feature_base' => feature_base, 'hotfix_base' => hotfix_base },
         'database' => { 'host' => 'localhost', 'port' => 5432, 'user' => db_user, 'prefix' => prefix, 'bootstrap' => 'schema' },
         'runtime' => { 'proxy' => proxy, 'domain' => domain }
@@ -121,7 +128,8 @@ module GitwoDetection
         ('No origin remote: branch creation needs an origin remote' if remote.empty?),
         ('No origin tracking ref for proposed primary branch' if main_ref && !refs.include?(main_ref)),
         ('Rails is not detected: only Rails adapters are currently supported' unless rails_markers),
-        ('PostgreSQL is not detected: Rails adapter setup requires PostgreSQL' unless postgres)
+        ('PostgreSQL is not detected: Rails adapter setup requires PostgreSQL' unless postgres),
+        ('Compose file detected: Gitwo does not execute application Compose files. Select the backend explicitly; the managed Compose runtime is not enabled yet.' unless compose_files.empty?)
       ].compact
     }
   end

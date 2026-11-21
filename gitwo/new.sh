@@ -106,6 +106,7 @@ if [[ "$seed" == auto && "$db" == schema && "${GITWO_BOOTSTRAP:-seeds}" == schem
 export GITWO_ISSUE_PROVIDER GITWO_ISSUE_URL GITWO_SOURCE
 gitwo_need git; gitwo_need ruby
 gitwo_check_source
+[[ "$GITWO_SERVICES_BACKEND" == native ]] || gitwo_die 'Managed Compose backend is not implemented yet; refusing unsafe native fallback before creating any worktree'
 # A shared, atomic mkdir lock prevents duplicate suffixes across simultaneous terminals.
 # No lock is created for read-only preview or resume.
 create_lock=''

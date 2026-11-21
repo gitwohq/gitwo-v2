@@ -36,6 +36,9 @@ SCHEMA = {
     'prefix' => 'GITWO_DB_PREFIX',
     'bootstrap' => 'GITWO_BOOTSTRAP'
   },
+  'services' => {
+    'backend' => 'GITWO_SERVICES_BACKEND'
+  },
   'runtime' => {
     'proxy' => 'GITWO_PROXY',
     'domain' => 'GITWO_DOMAIN'
@@ -107,6 +110,8 @@ def validate_value(key, value)
     valid = value.to_s.match?(%r{\A[0-9]+\z}) && value.to_i.between?(1024, 65_535)
   when 'GITWO_DB_USER'
     valid = value.is_a?(String) && value.match?(%r{\A[A-Za-z_][A-Za-z0-9_]*\z})
+  when 'GITWO_SERVICES_BACKEND'
+    valid = %w[native compose].include?(value)
   when 'GITWO_PROXY'
     valid = %w[portless none].include?(value)
   when 'GITWO_DOMAIN'

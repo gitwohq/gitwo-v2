@@ -25,6 +25,11 @@ database:
   user: postgres
   prefix: example_app
   bootstrap: schema
+# Native backend uses locally installed PostgreSQL and Redis.
+# Compose is reserved for a Gitwo-owned isolated service profile; existing
+# application compose.yaml files are never executed automatically.
+services:
+  backend: native
 runtime:
   proxy: none
   domain: example-app

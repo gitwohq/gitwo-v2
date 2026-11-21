@@ -67,6 +67,7 @@ type="$(gitwo_branch_type "$branch")"; ticket="$(gitwo_issue_key_from_branch "$b
 gitwo_validate_workspace_identity "$target" "$branch"
 gitwo_verify_target "$target" "$branch"
 gitwo_write_state "$target" "$type" "$ticket"
+[[ "$GITWO_SERVICES_BACKEND" == native ]] || gitwo_die 'Managed Compose backend is not implemented yet; refusing to touch local databases'
 gitwo_db_settings
 cd "$target"
 source "$GITWO_DIR/_adapter.sh"

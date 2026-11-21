@@ -15,6 +15,7 @@ class GitwoOnboard
   TRACKERS = %w[jira linear github none].freeze
   BOOTSTRAPS = %w[schema seeds].freeze
   MODES = %w[portless none].freeze
+  BACKENDS = %w[native compose].freeze
 
   def initialize(action, argv)
     @action = action
@@ -86,6 +87,7 @@ class GitwoOnboard
       if %w[jira linear].include?(suggested.dig('issues', 'provider'))
         suggested['issues']['credential'] = ask('Credential profile (letters, digits, - and _)', 'default')
       end
+      suggested['services']['backend'] = choose('PostgreSQL/Redis service backend (Compose preview-only)', BACKENDS, 'native')
       suggested['database']['bootstrap'] = choose('New database bootstrap (seeds may have side effects)', BOOTSTRAPS, 'schema')
       suggested['runtime']['proxy'] = choose('HTTP proxy', MODES, suggested.dig('runtime', 'proxy'))
       case suggested.dig('issues', 'provider')
@@ -104,6 +106,10 @@ class GitwoOnboard
       unless detection.dig('detected', 'framework', 'value') == 'rails'
         raise ArgumentError, 'Cannot safely initialize a non-Rails repository with --yes (Rails-only adapters currently)'
       end
+    end
+
+    if suggested.dig('services', 'backend') == 'compose'
+      raise ArgumentError, 'Managed Compose backend is not available yet. No files changed; select native or use init --dry-run to inspect detected Compose files.'
     end
 
     # No destructive initialization if Git refs are missing.
