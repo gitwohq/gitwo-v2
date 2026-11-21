@@ -3,6 +3,8 @@
 set -euo pipefail
 here="$(cd -- "$(dirname -- "$0")" && pwd -P)"
 tmp="$(mktemp -d)"
+# macOS /var is a symlink to /private/var; compare canonical paths.
+tmp="$(cd -- "$tmp" && pwd -P)"
 trap 'rm -rf -- "$tmp"' EXIT
 export HOME="$tmp/home" GITWO_GLOBAL_STATE_ROOT="$tmp/state"
 mkdir -p "$HOME" "$tmp/bin" "$tmp/app"

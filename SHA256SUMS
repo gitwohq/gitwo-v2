@@ -61,7 +61,7 @@ f7e91b410c3d57f2e7a1f8f6acbcaa24617b02d01a499580b2dac5d77bda8383  ./gitwo/setup.
 7bd7fd3442ff4627b48e46e14529c1d7d4f94056e57bdb19ff6866c3d3169f09  ./gitwo/test-providers.sh
 9c7f3c8a880216a9d3286f52241463b050ceca53195453625705d88870dffd18  ./gitwo/test-rails-config.sh
 3e4e00ab13d13a5d6fc4c9facbd712ba0d93fe78b1af31d2ed1ae78c4562a61a  ./gitwo/test-security.sh
-da85cb60610383fb156c93d1ffe2173949e044d5a1928f561d7d4ea5bd78de4a  ./gitwo/test-services.sh
+b1d885eaef452da84c4bca8b95eeff29043b602a6916e78b4d8c1d15eb8a5b74  ./gitwo/test-services.sh
 4a6968a58ef6f3e3b7a5d66860cc216c8968acfc8225001a53df6239584d8bf6  ./gitwo/test-testing.sh
 5bdc3552443dfa1f26f3bfa93e1982541dd18134945df2647ea9ab309beca9fc  ./gitwo/test-universal.sh
 5671468fc12e1bcddbd9376eef1f50dc3b8c5fdf950e4bd886030e048d19a929  ./gitwo/test-workspace-env.sh
