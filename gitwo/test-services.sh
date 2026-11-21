@@ -12,6 +12,7 @@ git -C "$tmp/app" config user.name Test
 printf 'fixture\n' > "$tmp/app/README"
 git -C "$tmp/app" add README
 git -C "$tmp/app" commit -qm fixture
+mkdir -p "$tmp/worktrees"
 git -C "$tmp/app" worktree add -q -b experiment/develop-1 "$tmp/worktrees/develop-1"
 git -C "$tmp/app" worktree add -q -b experiment/develop-2 "$tmp/worktrees/develop-2"
 export GITWO_WORKSPACES_ROOT="$tmp/worktrees"

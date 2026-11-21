@@ -10,7 +10,7 @@ fi
 required=( _common.sh _runtime.sh _services.sh _lifecycle.sh _prepare.sh _dumps.sh _ui.sh _testing.sh
   config.rb config.sh help.sh onboard.rb project.rb detect.rb detect.sh direnv.sh workspace-env.sh rails-config.rb proxy.sh
   new.sh checkout.sh setup.sh run.sh down.sh logs.sh remove.sh init.sh redis.sh
-  open.sh env.sh dump.sh clean.sh repair.sh services.sh list.sh baseline.sh
+  open.sh env.sh dump.sh clean.sh repair.sh services.sh test-services.sh list.sh baseline.sh
   provider.rb provider-env.sh issue.rb jira-env.sh jira-init.sh jira-test.sh
   _adapter.sh adapters/rails-standard.sh adapters/rails-webpack.sh test-testing.sh test-rails-config.sh shell.zsh VERSION )
 fail=0
