@@ -22,7 +22,7 @@ Workspace:
   remove [WORKSPACE] [OPTIONS]   Safely remove a worktree (DBs retained by default)
 
 Tools:
-  run [WORKSPACE] MODE [ARGS]    Run Rails, RSpec, console or Sidekiq
+  run [WORKSPACE] MODE [ARGS]    Run Rails, Minitest, RSpec, console or Sidekiq
   setup [WORKSPACE] [OPTIONS]   Initialize Rails environment
   init [OPTIONS]                Detect project and configure Gitwo
   detect [--json]               Inspect repo/framework/workflow without changes
@@ -67,9 +67,11 @@ Existing databases are never automatically overwritten; adoption requires confir
 EOF
     ;;
   run) cat <<'EOF'
-Usage: gitwo run [WORKSPACE] <server|rspec|rails|console|sidekiq> [ARGS]
+Usage: gitwo run [WORKSPACE] <server|test|minitest|rspec|rails|console|sidekiq> [ARGS]
   server     Run Puma + dedicated Redis
-  rspec      Test DB + dedicated test Redis
+  test       Auto-select Minitest or RSpec; refuse ambiguous projects
+  minitest   Rails test (Minitest) + isolated test DB and Redis
+  rspec      RSpec + isolated test DB and Redis
   rails      Run Rails task with development DB and Redis
   console    Start Rails console
   sidekiq    Requires GITWO_ENABLE_SIDEKIQ=1
