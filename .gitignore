@@ -1,0 +1,7 @@
+# Local workspace and database artifacts
+.gitwo/
+.gitwo-workspaces/
+dumps/
+*.dump
+*.dump.gz
+*.sql.gz

@@ -1,0 +1,55 @@
+# Gitwo
+
+Manage independent Rails feature worktrees with isolated local PostgreSQL/Redis and optional Portless proxy.
+
+## Install (new, standalone CLI)
+
+```sh
+unzip gitwo-v4.21.0-universal-complete.zip
+bash gitwo-v4.21.0/install.sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Gitwo CLI is installed to `~/.local/bin/gitwo`, scripts to `~/.local/share/gitwo/`.
+The shell wrapper permits `gitwo checkout` and `gitwo new` to update the interactive directory:
+
+```sh
+source "$HOME/.local/share/gitwo/shell.zsh"
+```
+
+## Initialize a project
+
+```sh
+cd /path/to/rails-app
+
+gitwo detect
+gitwo init                 # Guided YAML project configuration
+gitwo init --yes           # Safe noninteractive defaults, schema only
+gitwo init --dry-run       # No changes
+
+gitwo doctor
+gitwo new develop --no-setup
+gitwo new feature ENG-42 --title "Fix API" --no-setup
+```
+
+`gitwo.yml` is stored in the permanent Git checkout. It holds nonsecret, versioned settings; you may commit it after review. On startup Gitwo discovers the canonical primary worktree from the current checkout, then reads the primary checkout's `gitwo.yml`. Set `GITWO_PROJECT_ROOT` for commands executed outside a Git directory.
+
+Gitwo worktrees are created in `../.gitwo-workspaces/<source-checkout-name>/`. State is stored in `~/.local/state/gitwo/projects/<project-ID>/`; it is never written into the application repo. `--dump` archives go under the configured project workspaces directory's `dumps/` subfolder.
+
+## Issue tracking
+
+`issues.provider: jira` supports key lookup and Jira REST v3. Use private `~/.config/gitwo/credentials/<profile>/jira.env` (0600) or environment variables. `issues.credential` selects a nonsecret credential profile.
+
+`issues.provider: linear` uses GraphQL lookup by identifier. Set `LINEAR_API_KEY` in your process or private `~/.config/gitwo/credentials/<profile>/linear.env` (0600).
+
+`issues.provider: github` accepts `123`, `#123`, `GH-123`, or an issue URL. The `gh` CLI uses your existing authentication (`gh auth login`). Issue number is scoped to the selected source repository; set `issues.url: https://github.com/OWNER/REPO` for a non-GitHub Git remote.
+
+`issues.provider: none` accepts issue-style keys (e.g. `ENG-42`) without API calls; `gitwo new develop` creates sequential standalone experiment worktrees.
+
+## Safety and compatibility
+
+Do not put API tokens in `gitwo.yml`. Credentials and project state are separate. Gitwo does not overwrite existing databases or adopt unregistered ones without confirmation. Destructive actions require explicit flags and verification.
+
+**This standalone distribution does not migrate existing per-project installations**. Keep them installed and functional until they have been migrated separately and the databases verified. The opt-in `rails-webpack` adapter is a compatibility hook, not a guarantee that a specific legacy Rails app is supported by the generic adapter.
+
+For commands use `gitwo --help`, `gitwo new --help`, `gitwo status` and `gitwo doctor`.

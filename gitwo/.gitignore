@@ -1,0 +1,10 @@
+# Never commit local workspace state, database dumps, or credentials.
+.state/
+
+# Local secrets, in case a config is placed here by mistake.
+.env
+.env.*
+jira.env
+
+# Private machine/project-specific local Gitwo configuration.
+config.yml

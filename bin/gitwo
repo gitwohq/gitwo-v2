@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Process CLI. Source shell.zsh for checkout/new to update your current shell cwd.
+set -euo pipefail
+self="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+root="$(cd -- "$self/../share/gitwo" && pwd -P)"
+command="${1:---help}"
+[[ $# -eq 0 ]] || shift
+case "$command" in
+  --help|-h|help) exec "$root/help.sh" "$@" ;;
+  --version|version) printf 'gitwo %s\n' "$(cat "$root/VERSION")" ;;
+  new) exec "$root/new.sh" "$@" ;;
+  checkout|co|switch) exec "$root/checkout.sh" "$@" ;;
+  base) exec "$root/base.sh" "$@" ;;
+  up) exec "$root/run.sh" "$@" server ;;
+  run) exec "$root/run.sh" "$@" ;;
+  init|detect) exec ruby "$root/onboard.rb" "$command" "$@" ;;
+  workspace)
+    action="${1:-}"; [[ $# -eq 0 ]] || shift
+    [[ "$action" == adopt ]] || { printf 'Usage: gitwo workspace adopt [WORKSPACE]\n' >&2; exit 2; }
+    exec "$root/init.sh" "$@" ;;
+  config|doctor|setup|status|list|logs|down|remove|open|env|dump|clean|repair|redis)
+    exec "$root/$command.sh" "$@" ;;
+  jira-init|jira-test) exec "$root/$command.sh" "$@" ;;
+  *) printf 'Unknown Gitwo command: %s\n' "$command" >&2; exit 2 ;;
+esac
