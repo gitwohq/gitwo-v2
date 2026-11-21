@@ -50,7 +50,7 @@ jobs:
           portless proxy start --https
           test -s "$HOME/.portless/ca.pem"
           test -f "$HOME/.portless/ca-key.pem"
-          portless proxy status
+          portless doctor
       - name: Test real Rails/Puma/PostgreSQL/Redis via verified HTTPS
         shell: bash
         env:
@@ -68,7 +68,7 @@ jobs:
         shell: bash
         run: |
           portless doctor || true
-          portless proxy status || true
+          portless doctor || true
           if test -f "$RUNNER_TEMP/gitwo-postgres.log"; then tail -100 "$RUNNER_TEMP/gitwo-postgres.log"; fi
       - name: Stop temporary services
         if: always()
