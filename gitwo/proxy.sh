@@ -30,11 +30,14 @@ record=''
 route() {
   portless list --json | ruby -rjson -e '
     data = JSON.parse(STDIN.read)
-    abort "Portless list must be an array" unless data.is_a?(Array)
-    found = data.select { |row| row.is_a?(Hash) && row["hostname"] == ARGV.fetch(0) }
+    abort "Invalid Portless JSON response" unless data.is_a?(Hash) && data["routes"].is_a?(Array)
+    found = data.fetch("routes").select { |row| row.is_a?(Hash) && row["hostname"] == ARGV.fetch(0) }
     abort "Ambiguous Portless alias" if found.size > 1
     if (entry = found.first)
-      puts "#{entry["port"]}:#{entry["alias"] == true ? "alias" : "foreign"}"
+      port = entry.fetch("port")
+      pid = entry.fetch("pid")
+      abort "Invalid Portless route data" unless port.is_a?(Integer) && pid.is_a?(Integer)
+      puts "#{port}:#{pid == 0 ? "alias" : "foreign"}"
     end
   ' "$hostname"
 }
