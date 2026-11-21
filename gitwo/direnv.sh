@@ -72,6 +72,8 @@ export GITWO_TEST_DATABASE_URL="$(gitwo_db_url "$GITWO_DB_TEST")"
 export GITWO_DEV_REDIS_URL="$(gitwo_redis_url development)"
 export GITWO_TEST_REDIS_URL="$(gitwo_redis_url test)"
 export PGHOST="$GITWO_DB_HOST" PGPORT="$GITWO_DB_PORT" PGUSER="$GITWO_DB_USER"
+# PGPASSWORD is set from private Gitwo Compose state only for the Compose backend.
+# It is restored automatically when direnv unloads the workspace.
 export DB_HOST="$GITWO_DB_HOST" DB_PORT="$GITWO_DB_PORT" DB_USERNAME="$GITWO_DB_USER"
 export PORT="$WEB_PORT"
 export GITWO_PORTLESS_HOST="$(gitwo_web_name "$workspace").localhost"

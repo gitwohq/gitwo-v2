@@ -68,6 +68,7 @@ done
 
 # Validate ownership and local-only DB names BEFORE the Git worktree disappears.
 if [[ "$delete_db" == yes ]]; then
+  [[ "$GITWO_SERVICES_BACKEND" == native ]] || gitwo_die 'For Compose: volumes are retained; database deletion is not supported by gitwo remove'
   gitwo_need psql; gitwo_need dropdb
   gitwo_db_settings
   marker="$GITWO_STATE/${slug}.db-ready"

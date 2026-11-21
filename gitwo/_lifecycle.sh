@@ -100,6 +100,16 @@ gitwo_puma_stop() {
 
 # Ensure a stopped-workspace check never creates new port allocations.
 gitwo_redis_process_status() {
+  if [[ "$GITWO_SERVICES_BACKEND" == compose ]]; then
+    if command -v docker >/dev/null 2>&1; then
+      local active
+      active="$(gitwo_compose_cli "$1" ps --status running --services 2>/dev/null || true)"
+      if [[ -n "$active" ]]; then printf 'running (Compose)\n'; else printf 'stopped (Compose)\n'; fi
+    else
+      printf 'unavailable (Docker missing)\n'
+    fi
+    return
+  fi
   local target="$1" mode="$2" port status
   if ! gitwo_runtime_existing_load "$target"; then
     printf 'not allocated\n'

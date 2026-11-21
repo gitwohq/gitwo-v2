@@ -19,7 +19,7 @@ case "$action" in
     gitwo_redis_start "$target" test
     ;;
   stop)
-    gitwo_need redis-cli
+    if [[ "$GITWO_SERVICES_BACKEND" == native ]]; then gitwo_need redis-cli; fi
     gitwo_redis_stop "$target" development
     gitwo_redis_stop "$target" test
     ;;

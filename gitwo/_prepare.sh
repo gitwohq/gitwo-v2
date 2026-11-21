@@ -17,6 +17,8 @@ gitwo_up_prepare() {
 
   slug="$(basename "$target")"
   gitwo_validate_workspace_identity "$target" "$branch"
+  GITWO_PATH="$target"
+  gitwo_compose_up "$target"
 
   expected_dev="$(gitwo_expected_db_name "$target" development)"
   expected_test="$(gitwo_expected_db_name "$target" test)"

@@ -47,6 +47,7 @@ case "$action" in
     gitwo_verify_target "$target" "$branch"
     gitwo_validate_workspace_identity "$target" "$branch"
     slug="$(basename "$target")"
+    GITWO_PATH="$target"
     gitwo_db_settings
     db="$(gitwo_expected_db_name "$target" development)"
     marker="$GITWO_STATE/${slug}.db-ready"

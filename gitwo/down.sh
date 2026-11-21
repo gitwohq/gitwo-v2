@@ -16,7 +16,7 @@ gitwo_verify_target "$target" "$branch"
 gitwo_sidekiq_stop "$target" || gitwo_die "Could not stop Sidekiq safely"
 gitwo_puma_stop "$target" || gitwo_die "Refusing to stop an unverified Puma process"
 if gitwo_runtime_existing_load "$target"; then
-  gitwo_need redis-cli
+  if [[ "$GITWO_SERVICES_BACKEND" == native ]]; then gitwo_need redis-cli; fi
   gitwo_redis_stop "$target" development
   gitwo_redis_stop "$target" test
 fi

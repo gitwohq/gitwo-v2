@@ -113,6 +113,7 @@ case "$source_type" in
   *) field 'Data source' 'invalid metadata'; failed=1 ;;
 esac
 
+GITWO_PATH="$target"
 gitwo_db_settings
 if command -v psql >/dev/null 2>&1; then
   if existing="$(gitwo_pg psql --no-psqlrc -w -d postgres -Atqc "SELECT 1 FROM pg_database WHERE datname = '$expected_dev'" 2>/dev/null)"; then

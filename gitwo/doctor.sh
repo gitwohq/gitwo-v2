@@ -37,7 +37,14 @@ else
 fi
 if [[ "${1:-}" == --deps ]]; then
   missing=0
-  for binary in git ruby mise node psql createdb pg_dump pg_restore redis-server redis-cli lsof; do
+  binaries=(git ruby mise node psql createdb pg_dump pg_restore lsof)
+  if [[ "${GITWO_SERVICES_BACKEND:-native}" == compose ]]; then
+    binaries+=(docker)
+    docker compose version >/dev/null 2>&1 || { echo '[MISSING] Docker Compose V2' >&2; missing=1; }
+  else
+    binaries+=(redis-server redis-cli)
+  fi
+  for binary in "${binaries[@]}"; do
     if command -v "$binary" >/dev/null 2>&1; then
       printf '[OK] %s\n' "$binary"
     else

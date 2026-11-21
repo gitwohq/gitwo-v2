@@ -37,6 +37,7 @@ ticket="$(gitwo_issue_key_from_branch "$branch")"
 gitwo_validate_workspace_identity "$target" "$branch"
 gitwo_verify_target "$target" "$branch"
 # Validate the database first; do not create metadata for an unverified DB.
+GITWO_PATH="$target"
 gitwo_db_settings
 GITWO_DB_DEV="$(gitwo_expected_db_name "$target" development)"
 GITWO_DB_TEST="$(gitwo_expected_db_name "$target" test)"
