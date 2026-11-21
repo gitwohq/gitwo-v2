@@ -57,6 +57,7 @@ gitwo_load_state "$target"
 marker="$GITWO_STATE/$(basename "$target").db-ready"
 [[ -f "$marker" && ! -L "$marker" && "$(cat "$marker")" == "$GITWO_DB_DEV" ]] || gitwo_die 'Workspace database has not been registered; run gitwo setup first'
 [[ -f "$GITWO_STATE/$(basename "$target").bootstrap-status" && "$(cat "$GITWO_STATE/$(basename "$target").bootstrap-status")" == ready ]] || gitwo_die 'Workspace database bootstrap is not ready'
+if [[ "$action" == init ]]; then gitwo_compose_up "$target"; fi
 gitwo_db_settings
 
 # verify must never allocate ports or start Redis. A missing allocation is

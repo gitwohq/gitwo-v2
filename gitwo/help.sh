@@ -35,6 +35,7 @@ Tools:
   init [OPTIONS]                Detect project and configure Gitwo
   detect [--json]               Inspect repo/framework/workflow without changes
   workspace adopt [WORKSPACE]   Inspect/adopt an existing database
+  services <up|down|status> ... Control per-workspace native/Compose dependencies
   redis MODE [WORKSPACE]        Start/stop/check workspace Redis
   open [WORKSPACE] [--print]     Open browser or print workspace URL
   env [WORKSPACE] [--json]      Show allowlisted computed runtime settings

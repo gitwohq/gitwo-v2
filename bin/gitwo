@@ -24,7 +24,7 @@ case "$command" in
       adopt) exec "$root/init.sh" "$@" ;;
       *) printf 'Usage: gitwo workspace <create|enter|env|proxy|adopt> ...\n' >&2; exit 2 ;;
     esac ;;
-  config|doctor|setup|status|list|logs|down|remove|open|env|dump|clean|repair|redis)
+  config|doctor|setup|status|list|logs|down|remove|open|env|dump|clean|repair|redis|services)
     exec "$root/$command.sh" "$@" ;;
   jira-init|jira-test) exec "$root/$command.sh" "$@" ;;
   *) printf 'Unknown Gitwo command: %s\n' "$command" >&2; exit 2 ;;

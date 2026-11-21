@@ -29,7 +29,9 @@ case "$action" in
     printf 'Postgres:  %s\n' "$GITWO_DB_DEV"
     for mode in development test; do
       port="$(_gitwo_redis_port "$mode")"
-      if command -v redis-cli >/dev/null 2>&1 && [[ "$(_gitwo_redis_cli "$port" PING 2>/dev/null || true)" == PONG ]]; then
+      if [[ "$GITWO_SERVICES_BACKEND" == compose ]]; then
+        status="$(gitwo_compose_cli "$target" ps --status running --services 2>/dev/null | grep -qx "redis-${mode/development/dev}" && echo running || echo stopped)"
+      elif command -v redis-cli >/dev/null 2>&1 && [[ "$(_gitwo_redis_cli "$port" PING 2>/dev/null || true)" == PONG ]]; then
         if _gitwo_redis_is_owned "$target" "$mode" "$port"; then status=running; else status="foreign (unsafe)"; fi
       else
         status=stopped
