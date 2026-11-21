@@ -1,0 +1,80 @@
+name: Gitwo macOS Rails + Portless HTTPS E2E
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos-rails-portless:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.14'
+      - uses: jdx/mise-action@v4
+        with:
+          install: false
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install PostgreSQL 16, Redis and pinned Portless
+        shell: bash
+        run: |
+          brew install postgresql@16 redis
+          echo "$(brew --prefix postgresql@16)/bin" >> "$GITHUB_PATH"
+          npm install -g portless@0.18.1
+      - name: Start private PostgreSQL on loopback
+        shell: bash
+        env:
+          PGPASSWORD: local_ci_only
+        run: |
+          set -euo pipefail
+          pgdata="$RUNNER_TEMP/gitwo-postgres"
+          printf '%s\n' "$PGPASSWORD" > "$RUNNER_TEMP/gitwo-pg-password"
+          chmod 600 "$RUNNER_TEMP/gitwo-pg-password"
+          initdb -U "$(whoami)" --auth=scram-sha-256 --pwfile="$RUNNER_TEMP/gitwo-pg-password" -D "$pgdata"
+          pg_ctl -w -D "$pgdata" -l "$RUNNER_TEMP/gitwo-postgres.log" -o '-h 127.0.0.1 -p 5432' start
+          PGHOST=127.0.0.1 PGUSER="$(whoami)" pg_isready -d postgres
+          echo "PGUSER=$(whoami)" >> "$GITHUB_ENV"
+      - name: Start Portless HTTPS proxy with local CA
+        shell: bash
+        run: |
+          set -euo pipefail
+          portless proxy start --https
+          test -s "$HOME/.portless/ca.pem"
+          test -f "$HOME/.portless/ca-key.pem"
+          portless proxy status
+      - name: Test real Rails/Puma/PostgreSQL/Redis via verified HTTPS
+        shell: bash
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGPASSWORD: local_ci_only
+          GITWO_DB_HOST: 127.0.0.1
+          GITWO_DB_PORT: '5432'
+          GITWO_E2E_PROXY: portless
+          GITWO_BOOTSTRAP: schema
+          RAILS_ENV: development
+        run: bash tests/e2e/rails-postgres.sh
+      - name: Collect diagnostics on failure
+        if: failure()
+        shell: bash
+        run: |
+          portless doctor || true
+          portless proxy status || true
+          if test -f "$RUNNER_TEMP/gitwo-postgres.log"; then tail -100 "$RUNNER_TEMP/gitwo-postgres.log"; fi
+      - name: Stop temporary services
+        if: always()
+        shell: bash
+        run: |
+          portless proxy stop || true
+          if test -d "$RUNNER_TEMP/gitwo-postgres"; then
+            pg_ctl -D "$RUNNER_TEMP/gitwo-postgres" -m fast stop || true
+          fi

@@ -352,9 +352,28 @@ gitwo_load_state() {
   local file
   file="$(gitwo_state_path "$1")"
   [[ -f "$file" ]] || gitwo_die "Workspace state not found: $file (run setup.sh)"
-  # The state file is written by our own scripts with validated, inert values.
-  # shellcheck disable=SC1090
-  source "$file"
+  # State is data, not shell code. Accept only the five generated keys and
+  # literal paths/identifiers, including backslash-escaped spaces from printf %q.
+  # Never source metadata: it may be damaged or replaced by a local process.
+  [[ ! -L "$file" ]] || gitwo_die "Unsafe workspace state symlink: $file"
+  local key value count=0 seen='|' line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^(GITWO_PATH|GITWO_TYPE|GITWO_TICKET|GITWO_DB_DEV|GITWO_DB_TEST)= ]] || gitwo_die "Unexpected workspace state entry: $file"
+    key="${line%%=*}"
+    value="${line#*=}"
+    [[ "$value" =~ ^([A-Za-z0-9_./+-]|\\[[:space:]])+$ ]] || gitwo_die "Unsafe workspace state value: $key"
+    [[ "$seen" != *"|$key|"* ]] || gitwo_die "Duplicate workspace state key: $key"
+    seen="${seen}${key}|"; count=$((count + 1))
+    value="${value//\\ / }"
+    case "$key" in
+      GITWO_PATH) GITWO_PATH="$value" ;;
+      GITWO_TYPE) GITWO_TYPE="$value" ;;
+      GITWO_TICKET) GITWO_TICKET="$value" ;;
+      GITWO_DB_DEV) GITWO_DB_DEV="$value" ;;
+      GITWO_DB_TEST) GITWO_DB_TEST="$value" ;;
+    esac
+  done < "$file"
+  [[ "$count" -eq 5 ]] || gitwo_die "Incomplete workspace state: $file"
   [[ "$GITWO_PATH" == "$1" ]] || gitwo_die 'Workspace state/path mismatch'
   [[ "$GITWO_DB_DEV" == "$(gitwo_expected_db_name "$1" development)" && "$GITWO_DB_TEST" == "$(gitwo_expected_db_name "$1" test)" ]] || gitwo_die 'Unexpected DB names in workspace state'
 }

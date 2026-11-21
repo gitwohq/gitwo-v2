@@ -53,3 +53,7 @@ Do not put API tokens in `gitwo.yml`. Credentials and project state are separate
 **This standalone distribution does not migrate existing per-project installations**. Keep them installed and functional until they have been migrated separately and the databases verified. The opt-in `rails-webpack` adapter is a compatibility hook, not a guarantee that a specific legacy Rails app is supported by the generic adapter.
 
 For commands use `gitwo --help`, `gitwo new --help`, `gitwo status` and `gitwo doctor`.
+
+## License and security
+
+MIT (see [LICENSE](../LICENSE)). See [SECURITY.md](../SECURITY.md) for responsible reporting and local trust boundaries. See [release security review](../docs/release-security-review.md).

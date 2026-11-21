@@ -56,8 +56,17 @@ gitwo_runtime_existing_load() {
   if [[ "$(wc -l < "$ports" | tr -d ' ')" != 3 ]] || ! grep -Eq '^REDIS_DEV_PORT=[0-9]{4,5}$' "$ports" || ! grep -Eq '^REDIS_TEST_PORT=[0-9]{4,5}$' "$ports" || ! grep -Eq '^WEB_PORT=[0-9]{4,5}$' "$ports"; then
     gitwo_die "Invalid runtime ports file: $ports"
   fi
-  # shellcheck disable=SC1090
-  source "$ports"
+  # Parse numeric metadata as data. Do not execute a ports file as shell code.
+  local key value
+  while IFS='=' read -r key value; do
+    [[ "$value" =~ ^[0-9]{4,5}$ ]] || gitwo_die "Invalid port in $ports"
+    case "$key" in
+      REDIS_DEV_PORT) REDIS_DEV_PORT="$value" ;;
+      REDIS_TEST_PORT) REDIS_TEST_PORT="$value" ;;
+      WEB_PORT) WEB_PORT="$value" ;;
+      *) gitwo_die "Unexpected port key in $ports" ;;
+    esac
+  done < "$ports"
   [[ "$REDIS_DEV_PORT" != "$REDIS_TEST_PORT" && "$REDIS_DEV_PORT" != "$WEB_PORT" && "$REDIS_TEST_PORT" != "$WEB_PORT" ]] || gitwo_die 'Overlapping runtime ports'
 }
 gitwo_runtime_load() {

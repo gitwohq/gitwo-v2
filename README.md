@@ -73,3 +73,7 @@ A separate Linux Rails/PostgreSQL/Redis E2E workflow is included; until it passe
 the project should be considered pre-release.
 
 See [release notes](README-RELEASE.md) and [Gitwo docs](gitwo/README.md).
+
+## License and security
+
+Released under the [MIT License](LICENSE). Review [SECURITY.md](SECURITY.md) before running the tool on projects you do not trust. See [release security review](docs/release-security-review.md).

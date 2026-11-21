@@ -74,7 +74,7 @@ git push -q -u origin main
 bash "$repo_root/install.sh" "$install_prefix" > "$work/install.log"
 export GITWO_PROJECT_ROOT="$app"
 export GITWO_DB_PREFIX=gitwo_fixture
-export GITWO_PROXY=none
+export GITWO_PROXY="${GITWO_E2E_PROXY:-none}"
 export GITWO_DB_USER="${PGUSER}"
 export GITWO_BOOTSTRAP=schema
 cli="$install_prefix/bin/gitwo"
@@ -105,11 +105,24 @@ second="$($cli new develop --dump="$archive")"
 server_pid="$!"
 ports_file="$(find "${HOME}/.local/state/gitwo/projects" -name 'develop-1.ports' -print -quit)"
 # Runtime ports are created asynchronously after the server starts.
-for ((attempt=0; attempt<80; attempt++)); do
-  ports_file="$(find "${HOME}/.local/state/gitwo/projects" -name 'develop-1.ports' -print -quit)"
-  if [[ -f "$ports_file" ]]; then
-    port="$(awk -F= '$1=="WEB_PORT" {print $2}' "$ports_file")"
-    if [[ -n "$port" ]] && curl --fail --silent --max-time 2 "http://127.0.0.1:${port}/" | grep -qx 'gitwo-e2e-ok'; then break; fi
+# In Portless mode, the allocated direct port differs from the proxy-assigned
+# backend port. Verify the real HTTPS route AND its CA instead of using -k.
+healthy=no
+for ((attempt=0; attempt<120; attempt++)); do
+  if [[ "$GITWO_PROXY" == portless ]]; then
+    url="$($cli open develop-1 --print)"
+    if [[ -f "$HOME/.portless/ca.pem" ]] &&
+       curl --fail --silent --max-time 2 --cacert "$HOME/.portless/ca.pem" "$url/" | grep -qx 'gitwo-e2e-ok'; then
+      healthy=yes; break
+    fi
+  else
+    ports_file="$(find "${HOME}/.local/state/gitwo/projects" -name 'develop-1.ports' -print -quit)"
+    if [[ -f "$ports_file" ]]; then
+      port="$(awk -F= '$1=="WEB_PORT" {print $2}' "$ports_file")"
+      if [[ -n "$port" ]] && curl --fail --silent --max-time 2 "http://127.0.0.1:${port}/" | grep -qx 'gitwo-e2e-ok'; then
+        healthy=yes; break
+      fi
+    fi
   fi
   if ! kill -0 "$server_pid" 2>/dev/null; then
     echo 'Puma failed during bootstrap' >&2
@@ -118,9 +131,7 @@ for ((attempt=0; attempt<80; attempt++)); do
   fi
   sleep 1
 done
-[[ -n "${port:-}" ]] && curl --fail --silent --max-time 3 "http://127.0.0.1:${port}/" | grep -qx 'gitwo-e2e-ok' || {
-  echo 'Rails did not become healthy' >&2; cat "$work/server.log" >&2; exit 1;
-}
+[[ "$healthy" == yes ]] || { echo 'Rails did not become healthy' >&2; cat "$work/server.log" >&2; exit 1; }
 "$cli" status develop-1 --check-http > "$work/health-status.log"
 "$cli" down develop-1
 "$cli" remove develop-2 --dry-run > "$work/remove-dry-run.log" 2>&1 || true

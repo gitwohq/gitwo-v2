@@ -176,7 +176,15 @@ if [[ "$check_http" == yes ]]; then
     field HTTP 'unavailable (curl missing or no URL)'
     failed=1
   else
-    http_code="$(curl -k -sS -o /dev/null -w '%{http_code}' --connect-timeout 2 --max-time 5 "$http_url" 2>/dev/null)" || http_code=000
+    # Verify HTTPS certificates. Portless uses a private CA; never use curl -k.
+    curl_ca=()
+    if [[ "$http_url" == https://* && -f "$HOME/.portless/ca.pem" && ! -L "$HOME/.portless/ca.pem" ]]; then
+      curl_ca=(--cacert "$HOME/.portless/ca.pem")
+    elif [[ "$http_url" == https://* && -d "$HOME/.portless/ca.pem" ]]; then
+      field HTTP 'invalid Portless CA path (directory)'
+      exit 1
+    fi
+    http_code="$(curl "${curl_ca[@]}" -sS -o /dev/null -w '%{http_code}' --connect-timeout 2 --max-time 5 "$http_url" 2>/dev/null)" || http_code=000
     if [[ "$http_code" =~ ^[23][0-9]{2}$ ]]; then
       field HTTP "healthy ($http_code)"
     elif [[ "$http_code" == 000 ]]; then
