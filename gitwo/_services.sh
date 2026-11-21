@@ -32,12 +32,16 @@ gitwo_compose_cli() {
 gitwo_compose_prepare() {
   [[ "$GITWO_SERVICES_BACKEND" == compose ]] || return 0
   local path="$1" dir lock pg i password
+  GITWO_DB_USER="${GITWO_DB_USER:-${USER:-postgres}}"
+  export GITWO_DB_USER
   gitwo_need docker
   docker compose version >/dev/null 2>&1 || gitwo_die 'Docker Compose V2 is required'
   source "$GITWO_DIR/_runtime.sh"
   gitwo_runtime_load "$path"
   dir="$(gitwo_compose_dir "$path")"
   [[ ! -L "$dir" ]] || gitwo_die 'Unsafe Compose state symlink'
+  [[ ! -e "$dir/pg.port" || ( -f "$dir/pg.port" && ! -L "$dir/pg.port" ) ]] || gitwo_die 'Unsafe Compose port file'
+  [[ ! -e "$dir/pg.password" || ( -f "$dir/pg.password" && ! -L "$dir/pg.password" ) ]] || gitwo_die 'Unsafe Compose password file'
   mkdir -p "$dir"; chmod 700 "$dir"
   if [[ ! -f "$dir/pg.port" ]]; then
     lock="$GITWO_GLOBAL_STATE_ROOT/.compose-port-lock"
