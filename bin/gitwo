@@ -20,8 +20,9 @@ case "$command" in
       create) exec "$root/new.sh" "$@" ;;
       enter|checkout) exec "$root/checkout.sh" "$@" ;;
       env) exec "$root/workspace-env.sh" "$@" ;;
+      proxy) exec "$root/proxy.sh" "$@" ;;
       adopt) exec "$root/init.sh" "$@" ;;
-      *) printf 'Usage: gitwo workspace <create|enter|env|adopt> ...\n' >&2; exit 2 ;;
+      *) printf 'Usage: gitwo workspace <create|enter|env|proxy|adopt> ...\n' >&2; exit 2 ;;
     esac ;;
   config|doctor|setup|status|list|logs|down|remove|open|env|dump|clean|repair|redis)
     exec "$root/$command.sh" "$@" ;;

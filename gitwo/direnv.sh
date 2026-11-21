@@ -75,7 +75,14 @@ export PGHOST="$GITWO_DB_HOST" PGPORT="$GITWO_DB_PORT" PGUSER="$GITWO_DB_USER"
 export DB_HOST="$GITWO_DB_HOST" DB_PORT="$GITWO_DB_PORT" DB_USERNAME="$GITWO_DB_USER"
 export PORT="$WEB_PORT"
 export GITWO_PORTLESS_HOST="$(gitwo_web_name "$workspace").localhost"
-export APP_HOST="localhost:$PORT"
+if [[ "$GITWO_PROXY" == portless ]]; then
+  export APP_HOST="$GITWO_PORTLESS_HOST"
+  export GITWO_APP_URL="https://$GITWO_PORTLESS_HOST"
+  export RAILS_DEVELOPMENT_HOSTS="${RAILS_DEVELOPMENT_HOSTS:+${RAILS_DEVELOPMENT_HOSTS},}${GITWO_PORTLESS_HOST}"
+else
+  export APP_HOST="localhost:$PORT"
+  export GITWO_APP_URL="http://localhost:$PORT"
+fi
 
 gitwo_ruby_version "$workspace"
 if command -v mise >/dev/null 2>&1; then

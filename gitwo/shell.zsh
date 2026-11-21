@@ -180,8 +180,9 @@ gitwo() {
         create) gitwo new "$@" ;;
         enter|checkout) gitwo checkout "$@" ;;
         env) "$GITWO_LOCAL_DIR/workspace-env.sh" "$@" ;;
+        proxy) "$GITWO_LOCAL_DIR/proxy.sh" "$@" ;;
         adopt) "$GITWO_LOCAL_DIR/init.sh" "$@" ;;
-        *) print -u2 -- 'Usage: gitwo workspace <create|enter|env|adopt> ...'; return 2 ;;
+        *) print -u2 -- 'Usage: gitwo workspace <create|enter|env|proxy|adopt> ...'; return 2 ;;
       esac
       ;;
     setup|run)
