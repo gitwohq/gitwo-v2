@@ -81,6 +81,14 @@ for name in alpha beta; do
     [[ "$GITWO_DB_DEV" == "${name}_develop_1_development" ]]
     [[ "$PWD" == "$path" ]]
   )
+  # direnv source_env sources ./direnv.sh from its own directory.
+  (
+    cd "$here"
+    export GITWO_DIRENV_WORKSPACE="$path"
+    source ./direnv.sh
+    [[ "$GITWO_WORKSPACE" == develop-1 ]]
+    [[ "$PWD" == "$path" ]]
+  )
   grep -qxF '/.envrc' "$tmp/work/$name/.git/info/exclude"
   (
     cd "$path"

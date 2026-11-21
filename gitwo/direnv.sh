@@ -3,6 +3,10 @@
 # This script must not execute Rails code, start services, or change tracked files.
 set -euo pipefail
 
+# source_env invokes this file as ./direnv.sh, relative to its installation.
+# Resolve its location before switching into the application worktree.
+here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+
 # direnv's source_env may evaluate this file outside the .envrc directory.
 # Use the workspace path captured when the managed .envrc was generated.
 # Explicit path is used by direnv. Direct verification already runs in the worktree.
@@ -26,7 +30,6 @@ for var in PAGER GIT_PAGER GIT_TERMINAL_PROMPT GIT_OPTIONAL_LOCKS; do
   fi
 done
 
-here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 source "$here/_common.sh"
 source "$here/_runtime.sh"
 
