@@ -1,0 +1,198 @@
+name: Gitwo CI - fast to slow
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Avoid double testing PR branch pushes and cancel outdated checks.
+concurrency:
+  group: gitwo-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: 01 - Static checks and dependency policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+        with:
+          ruby-version: '3.3.14'
+      - name: Fast syntax and dependency checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for script in gitwo/*.sh gitwo/adapters/*.sh tests/e2e/*.sh tests/*.sh install.sh test-installer.sh; do
+            bash -n "$script"
+          done
+          for script in gitwo/*.rb; do ruby -c "$script" >/dev/null; done
+          bash tests/check-dependencies.sh
+          echo 'Static and dependency checks passed.'
+
+  regression-linux:
+    name: 02 - Linux regression and installer
+    needs: static
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+        with:
+          ruby-version: '3.3.14'
+      - name: Functional and security regression
+        shell: bash
+        run: time bash gitwo/test-all.sh
+      - name: Installer and SHA-256 regression
+        shell: bash
+        run: time bash test-installer.sh
+
+  regression-macos:
+    name: 03 - macOS regression and installer
+    needs: regression-linux
+    runs-on: macos-15
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+        with:
+          ruby-version: '3.3.14'
+      - name: Functional and security regression
+        shell: bash
+        run: time bash gitwo/test-all.sh
+      - name: Installer and SHA-256 regression
+        shell: bash
+        run: time bash test-installer.sh
+
+  rails-linux:
+    name: 04 - Linux Rails and PostgreSQL E2E
+    needs: regression-linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: gitwo_ci
+          POSTGRES_PASSWORD: local_ci_only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gitwo_ci -d postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+        with:
+          ruby-version: '3.3.14'
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          install: false
+      - name: Install PostgreSQL and Redis CLI dependencies
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client redis-server redis-tools
+      - name: Real Rails and PostgreSQL E2E
+        shell: bash
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: gitwo_ci
+          PGPASSWORD: local_ci_only
+          GITWO_DB_HOST: 127.0.0.1
+          GITWO_DB_PORT: '5432'
+          GITWO_DB_USER: gitwo_ci
+          GITWO_PROXY: none
+          GITWO_BOOTSTRAP: schema
+          RAILS_ENV: development
+        run: time bash tests/e2e/rails-postgres.sh
+
+  rails-macos:
+    name: 05 - macOS Rails and Portless HTTPS E2E
+    needs: [regression-macos, rails-linux]
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+        with:
+          ruby-version: '3.3.14'
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          install: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - name: Install PostgreSQL 16, Redis and Portless 0.18.1
+        shell: bash
+        run: |
+          brew install postgresql@16 redis
+          echo "$(brew --prefix postgresql@16)/bin" >> "$GITHUB_PATH"
+          npm install -g portless@0.18.1
+      - name: Start temporary PostgreSQL on loopback
+        shell: bash
+        env:
+          PGPASSWORD: local_ci_only
+        run: |
+          set -euo pipefail
+          pgdata="$RUNNER_TEMP/gitwo-postgres"
+          printf '%s\n' "$PGPASSWORD" > "$RUNNER_TEMP/gitwo-pg-password"
+          chmod 600 "$RUNNER_TEMP/gitwo-pg-password"
+          initdb -U "$(whoami)" --auth=scram-sha-256 --pwfile="$RUNNER_TEMP/gitwo-pg-password" -D "$pgdata"
+          pg_ctl -w -D "$pgdata" -l "$RUNNER_TEMP/gitwo-postgres.log" -o '-h 127.0.0.1 -p 5432' start
+          PGHOST=127.0.0.1 PGUSER="$(whoami)" pg_isready -d postgres
+          echo "PGUSER=$(whoami)" >> "$GITHUB_ENV"
+      - name: Start Portless and verify CA
+        shell: bash
+        run: |
+          set -euo pipefail
+          portless proxy start --https
+          test -s "$HOME/.portless/ca.pem"
+          test -f "$HOME/.portless/ca-key.pem"
+          portless doctor
+      - name: Real Rails through verified HTTPS
+        shell: bash
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGPASSWORD: local_ci_only
+          GITWO_DB_HOST: 127.0.0.1
+          GITWO_DB_PORT: '5432'
+          GITWO_E2E_PROXY: portless
+          GITWO_BOOTSTRAP: schema
+          RAILS_ENV: development
+        run: time bash tests/e2e/rails-postgres.sh
+      - name: Diagnostic information on failure
+        if: failure()
+        shell: bash
+        run: |
+          portless doctor || true
+          portless proxy status || true
+          if test -f "$RUNNER_TEMP/gitwo-postgres.log"; then tail -100 "$RUNNER_TEMP/gitwo-postgres.log"; fi
+      - name: Stop temporary services
+        if: always()
+        shell: bash
+        run: |
+          portless proxy stop || true
+          if test -d "$RUNNER_TEMP/gitwo-postgres"; then
+            pg_ctl -D "$RUNNER_TEMP/gitwo-postgres" -m fast stop || true
+          fi

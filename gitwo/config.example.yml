@@ -1,0 +1,30 @@
+# Copy into your repository as gitwo.yml, or run gitwo init.
+# Never place API keys or passwords in this file.
+version: 1
+project:
+  adapter: rails-standard
+  source: example-app
+  base_branch: main
+git:
+  workflow: github-flow
+issues:
+  provider: none
+  credential: default
+framework:
+  name: rails
+  sidekiq: false
+  redis: false
+storage:
+  dumps_directory: dumps
+branches:
+  feature_base: origin/main
+  hotfix_base: origin/main
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  prefix: example_app
+  bootstrap: schema
+runtime:
+  proxy: none
+  domain: example-app
