@@ -35,25 +35,12 @@ cd "$app"
 printf '3.3.14\n' > .ruby-version
 # Test standard RSpec and Rails Minitest commands without Gitwo's run wrapper.
 cat >> Gemfile <<'RUBY'
+gem 'redis', '~> 5.0'
 group :test do
   gem 'rspec-rails', '~> 7.1'
 end
 RUBY
-# Native commands require a one-time, environment-aware Rails database config.
-# Gitwo must never rewrite an application's tracked database.yml itself.
-ruby <<'RUBY'
-path = 'config/database.yml'
-text = File.read(path)
-{
-  'demo_app_development' => '<%= ENV.fetch("GITWO_DB_DEV", "demo_app_development") %>',
-  'demo_app_test' => '<%= ENV.fetch("GITWO_DB_TEST", "demo_app_test") %>'
-}.each do |old, value|
-  pattern = /^(\s*database: )#{Regexp.escape(old)}(\s*)$/
-  abort "Missing Rails database.yml entry: #{old}" unless text.match?(pattern)
-  text.sub!(pattern, "\\1#{value}\\2")
-end
-File.write(path, text)
-RUBY
+# The safe integration command is exercised after the repository is initialized.
 bundle install --quiet
 
 mkdir -p db/migrate app/models
@@ -79,6 +66,12 @@ Rails.application.routes.draw do
   root to: proc { |_env| [200, { 'Content-Type' => 'text/plain' }, ['gitwo-e2e-ok']] }
 end
 RUBY
+cat > config/initializers/gitwo_redis.rb <<'RUBY'
+# The application, not Gitwo, chooses Redis per Rails environment.
+if ENV.key?('GITWO_DEV_REDIS_URL') && ENV.key?('GITWO_TEST_REDIS_URL')
+  Rails.application.config.x.workspace_redis_url = Rails.env.test? ? ENV.fetch('GITWO_TEST_REDIS_URL') : ENV.fetch('GITWO_DEV_REDIS_URL')
+end
+RUBY
 export DATABASE_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST:-127.0.0.1}:${PGPORT:-5432}/gitwo_fixture_development"
 bundle exec rails db:prepare > "$work/fixture-db.log"
 
@@ -102,6 +95,16 @@ cli="$install_prefix/bin/gitwo"
 "$cli" detect --project="$app" --json > "$work/detection.json"
 "$cli" init --project="$app" --yes > "$work/init.log"
 "$cli" config validate
+# One-time explicit, reviewable integration before making any worktrees.
+cp "$app/config/database.yml" "$work/database-original.yml"
+"$cli" workspace env integrate --dry-run > "$work/integrate-preview.log"
+cmp "$app/config/database.yml" "$work/database-original.yml"
+"$cli" workspace env integrate --apply > "$work/integrate-apply.log"
+grep -Fq 'GITWO_DB_DEV' "$app/config/database.yml"
+grep -Fq 'GITWO_DB_TEST' "$app/config/database.yml"
+git add config/database.yml
+git commit -qm 'Enable native Gitwo Rails database isolation'
+git push -q origin main
 
 # Exercise schema load, seed once, and isolated test DB creation.
 first="$($cli new develop --seed)"
@@ -122,6 +125,15 @@ eval "$(direnv export bash)"
 [[ "$GITWO_DB_TEST" == gitwo_fixture_develop_1_test ]]
 # Direct Rails development commands must not use the main checkout DB.
 bin/rails runner 'abort unless ActiveRecord::Base.connection_db_config.database == "gitwo_fixture_develop_1_development"' > "$work/native-dev.log"
+# Runtime vars and selected client URLs must remain isolated for native commands.
+bundle exec ruby -rredis -e '
+  dev = Redis.new(url: ENV.fetch("GITWO_DEV_REDIS_URL"))
+  test = Redis.new(url: ENV.fetch("GITWO_TEST_REDIS_URL"))
+  abort "Redis is not available" unless dev.ping == "PONG" && test.ping == "PONG"
+  dev.set("gitwo-development-sentinel", "preserve")
+  abort "Redis test/dev isolation failed" if test.get("gitwo-development-sentinel")
+'
+bin/rails runner 'abort "Wrong development Redis" unless Rails.application.config.x.workspace_redis_url == ENV.fetch("GITWO_DEV_REDIS_URL")' > "$work/native-redis-dev.log"
 mkdir -p spec
 cat > spec/rails_helper.rb <<'RUBY'
 ENV['RAILS_ENV'] = 'test'
@@ -134,6 +146,8 @@ RSpec.describe 'Gitwo native RSpec isolation' do
   it 'uses the selected workspace test database' do
     expect(ActiveRecord::Base.connection_db_config.database).to eq('gitwo_fixture_develop_1_test')
     expect(Widget.create!(name: 'gitwo-rspec').persisted?).to be(true)
+    expect(Rails.application.config.x.workspace_redis_url).to eq(ENV.fetch('GITWO_TEST_REDIS_URL'))
+    expect(Redis.new(url: Rails.application.config.x.workspace_redis_url).ping).to eq('PONG')
   end
 end
 RUBY
@@ -146,10 +160,13 @@ class GitwoNativeTest < ActiveSupport::TestCase
   test 'workspace test database' do
     assert_equal 'gitwo_fixture_develop_1_test', ActiveRecord::Base.connection_db_config.database
     assert Widget.create!(name: 'gitwo-minitest-native').persisted?
+    assert_equal ENV.fetch('GITWO_TEST_REDIS_URL'), Rails.application.config.x.workspace_redis_url
+    assert_equal 'PONG', Redis.new(url: Rails.application.config.x.workspace_redis_url).ping
   end
 end
 RUBY
 bin/rails test test/models/gitwo_native_test.rb > "$work/native-minitest.log"
+bundle exec ruby -rredis -e 'abort unless Redis.new(url: ENV.fetch("GITWO_DEV_REDIS_URL")).get("gitwo-development-sentinel") == "preserve"'
 cd "$app"
 eval "$(direnv export bash)"
 [[ "${DATABASE_URL:-}" == "$fixture_database_url" ]]

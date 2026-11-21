@@ -242,7 +242,7 @@ if [[ "$setup" == yes ]]; then
   # Activate native Rails commands only after checking BOTH development and test
   # database configurations without a Gitwo command wrapper.
   if ! "$GITWO_DIR/workspace-env.sh" init "$target" >&2; then
-    gitwo_warn 'Workspace created, but native activation is not configured. Run gitwo workspace env init after reviewing database.yml.'
+    gitwo_warn 'Workspace created without native activation. From the primary checkout, preview: gitwo workspace env integrate --dry-run. Integrate and commit if suitable, then run gitwo workspace env init.'
   fi
 else
   gitwo_warn 'Rails setup skipped. Run setup.sh explicitly when ready.'

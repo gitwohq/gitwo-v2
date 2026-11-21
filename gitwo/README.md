@@ -71,3 +71,16 @@ All commands use the selected workspace's isolated test PostgreSQL database and 
 If both Minitest and RSpec are present, `run test` refuses to guess; use an explicit runner.
 For `rails-standard`, `gitwo setup --test` uses the same detection. The legacy
 `rails-webpack` adapter retains its existing focused RSpec setup checks.
+
+## Native Rails workspace integration
+
+In the primary Rails checkout, run `gitwo workspace env integrate --dry-run` to
+preview an environment-aware `database.yml`. Explicit `--apply` makes a tracked,
+reviewable change and creates a private backup; commit it before creating the
+next worktree. Run `gitwo workspace env init` in a ready worktree to prepare an
+ignored `.envrc`, and approve it once with `direnv allow .`. Normal `bin/rails`,
+RSpec, and Minitest commands then work without `gitwo run`. The `verify` command
+does not allocate ports or start Redis. App-specific Redis clients must select
+`GITWO_DEV_REDIS_URL` or `GITWO_TEST_REDIS_URL` using `Rails.env`.
+
+See [workspace activation](../docs/workspace-activation.md).

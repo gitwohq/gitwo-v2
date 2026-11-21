@@ -15,7 +15,8 @@ Workspace:
   workspace create ...           Preferred alias for gitwo new (uses same lifecycle)
   workspace enter [WORKSPACE]    Enter a workspace (alias for checkout)
   workspace env init [WORKSPACE] Verify native Rails DB isolation and generate direnv .envrc
-  workspace env verify [...]     Re-check native development/test Rails DB targets
+  workspace env verify [...]     Check native Rails DB without starting services
+  workspace env integrate ...    Preview or explicitly patch simple database.yml
   checkout [WORKSPACE]           Change shell directory to worktree (alias: co, switch)
   base                           Change to the permanent develop worktree
   list [--json]                  List local Git worktrees (alias: ls)

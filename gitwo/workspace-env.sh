@@ -7,8 +7,10 @@ source "$GITWO_DIR/_runtime.sh"
 usage() {
   cat <<'USAGE'
 Usage: gitwo workspace env <init|verify> [WORKSPACE]
+       gitwo workspace env integrate [--dry-run|--apply]
   init     Verify native Rails DB isolation and create an ignored .envrc
-  verify   Verify native Rails development and test DB targets (read-only Rails checks)
+  verify   Check existing Rails DB targets without reserving ports or starting Redis
+  integrate  Preview or explicitly update simple tracked config/database.yml
 
 Setup direnv in your shell, then review and approve the generated .envrc:
   eval "$(direnv hook zsh)"  # Add this once to ~/.zshrc (bash: direnv hook bash)
@@ -19,9 +21,31 @@ USAGE
 }
 
 [[ "${1:-}" != -h && "${1:-}" != --help ]] || { usage; exit 0; }
-[[ $# -ge 1 && $# -le 2 ]] || { usage >&2; exit 2; }
-action="$1"; selector="${2:-}"
-case "$action" in init|verify) ;; *) usage >&2; exit 2 ;; esac
+[[ $# -ge 1 ]] || { usage >&2; exit 2; }
+action="$1"; shift
+case "$action" in
+  integrate)
+    [[ $# -le 1 ]] || { usage >&2; exit 2; }
+    mode=plan
+    case "${1:---dry-run}" in
+      --dry-run) ;;
+      --apply) mode=apply ;;
+      *) usage >&2; exit 2 ;;
+    esac
+    config="$GITWO_SOURCE/config/database.yml"
+    [[ -f "$config" && ! -L "$config" ]] || gitwo_die 'Expected a regular config/database.yml in the primary checkout'
+    git -C "$GITWO_SOURCE" ls-files --error-unmatch -- config/database.yml >/dev/null 2>&1 || gitwo_die 'database.yml must be tracked before integration'
+    if [[ "$mode" == apply ]]; then
+      [[ -z "$(git -C "$GITWO_SOURCE" status --porcelain -- config/database.yml)" ]] || gitwo_die 'database.yml has local changes; commit or stash them before --apply'
+    fi
+    exec ruby "$GITWO_DIR/rails-config.rb" "$mode" "$config" "$GITWO_STATE/backups"
+    ;;
+  init|verify)
+    [[ $# -le 1 ]] || { usage >&2; exit 2; }
+    selector="${1:-}"
+    ;;
+  *) usage >&2; exit 2 ;;
+esac
 
 gitwo_check_source
 target="$(gitwo_resolve_path "$selector")"
@@ -35,12 +59,16 @@ marker="$GITWO_STATE/$(basename "$target").db-ready"
 [[ -f "$GITWO_STATE/$(basename "$target").bootstrap-status" && "$(cat "$GITWO_STATE/$(basename "$target").bootstrap-status")" == ready ]] || gitwo_die 'Workspace database bootstrap is not ready'
 gitwo_db_settings
 
-# Ports are reserved explicitly here. The direnv evaluation itself never
-# allocates ports or starts services.
-gitwo_runtime_load "$target"
-if [[ "${GITWO_HAS_REDIS:-false}" == true ]]; then
-  gitwo_redis_start "$target" development
-  gitwo_redis_start "$target" test
+# verify must never allocate ports or start Redis. A missing allocation is
+# reported as a preparation problem rather than being silently repaired.
+if [[ "$action" == init ]]; then
+  gitwo_runtime_load "$target"
+  if [[ "${GITWO_HAS_REDIS:-false}" == true ]]; then
+    gitwo_redis_start "$target" development
+    gitwo_redis_start "$target" test
+  fi
+else
+  gitwo_runtime_existing_load "$target" || gitwo_die 'No runtime port reservation. Run gitwo workspace env init explicitly.'
 fi
 
 # Check database.yml in the normal shell environment. Never use gitwo_rails:
@@ -56,7 +84,7 @@ fi
   RAILS_ENV=test GITWO_EXPECTED_DB="$GITWO_DB_TEST" \
     mise exec "ruby@$GITWO_RUBY_VERSION" -- bundle exec rails runner \
     'abort "Gitwo: native test DB is not isolated" unless ActiveRecord::Base.connection_db_config.database == ENV.fetch("GITWO_EXPECTED_DB")' >/dev/null
-) || gitwo_die 'Native Rails DB verification failed. Configure database.yml for GITWO_DB_DEV and GITWO_DB_TEST; no .envrc was written.'
+) || gitwo_die 'Native Rails DB verification failed. Run gitwo workspace env integrate --dry-run in the primary checkout; no .envrc was written.'
 
 gitwo_ok "Native Rails development/test DB targets verified: $(basename "$target")"
 [[ "$action" == init ]] || exit 0

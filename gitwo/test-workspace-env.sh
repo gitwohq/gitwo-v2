@@ -46,6 +46,19 @@ for name in alpha beta; do
   printf "source 'https://rubygems.org'\ngem 'rails'\ngem 'pg'\n" > "$tmp/work/$name/Gemfile"
   printf '    rails (7.2.4)\n    pg (1.5.0)\n' > "$tmp/work/$name/Gemfile.lock"
   printf '# fixture\n' > "$tmp/work/$name/config/application.rb"
+  cat > "$tmp/work/$name/config/database.yml" <<'YAML'
+default: &default
+  adapter: postgresql
+development:
+  <<: *default
+  database: sample_development
+test:
+  <<: *default
+  database: sample_test
+production:
+  <<: *default
+  database: sample_production
+YAML
   printf '# fixture\n' > "$tmp/work/$name/db/schema.rb"
   printf '3.3.14\n' > "$tmp/work/$name/.ruby-version"
   git -C "$tmp/work/$name" add .
@@ -55,6 +68,15 @@ for name in alpha beta; do
 
   cd "$tmp/work/$name"
   gitwo init --yes >/dev/null
+  cp config/database.yml "$tmp/original-$name-db"
+  gitwo workspace env integrate --dry-run > "$tmp/$name-integration-preview"
+  cmp config/database.yml "$tmp/original-$name-db"
+  gitwo workspace env integrate --apply > "$tmp/$name-integration-apply"
+  grep -Fq 'GITWO_DB_DEV' config/database.yml
+  grep -Fq 'GITWO_DB_TEST' config/database.yml
+  git add config/database.yml
+  git commit -qm 'Enable Gitwo native database isolation'
+  git push -q origin main
   path="$(gitwo workspace create develop --no-setup 2>/dev/null)"
   [[ "$path" == "$tmp/work/.gitwo-workspaces/$name/develop-1" ]]
   [[ -f "$path/.ruby-version" ]]
@@ -65,6 +87,12 @@ for name in alpha beta; do
     printf '%s\n' "$GITWO_DB_DEV" > "$GITWO_STATE/develop-1.db-ready"
     printf 'ready\n' > "$GITWO_STATE/develop-1.bootstrap-status"
   )
+  # verify must not allocate ports, start Redis, or create .envrc.
+  count_before="$(find "$HOME/.local/state/gitwo/projects" -name 'develop-1.ports' -print | wc -l | tr -d ' ')"
+  GITWO_HAS_REDIS=true gitwo workspace env verify "$path" > "$tmp/$name-verify-before.log" 2>&1 && { echo 'Expected verification to fail for missing ports' >&2; exit 1; }
+  [[ ! -f "$path/.envrc" ]]
+  count_after="$(find "$HOME/.local/state/gitwo/projects" -name 'develop-1.ports' -print | wc -l | tr -d ' ')"
+  [[ "$count_before" == "$count_after" ]] || { echo 'verify unexpectedly allocated runtime ports' >&2; exit 1; }
   # A missing state must prevent activation. Only setup can record the marker.
   [[ -f "$path/.envrc" ]] && { echo 'Unexpected .envrc for --no-setup' >&2; exit 1; }
   gitwo workspace env init "$path" > "$tmp/$name-env.log" 2>&1
@@ -113,6 +141,11 @@ for name in alpha beta; do
   gitwo workspace env init "$path" >/dev/null 2>&1
   after="$(shasum -a 256 "$path/.envrc" 2>/dev/null || sha256sum "$path/.envrc")"
   [[ "$before" == "$after" ]]
+  ports_file="$(find "$HOME/.local/state/gitwo/projects" -name 'develop-1.ports' -print | tail -1)"
+  ports_before="$(shasum -a 256 "$ports_file" 2>/dev/null || sha256sum "$ports_file")"
+  GITWO_HAS_REDIS=true gitwo workspace env verify "$path" > "$tmp/$name-verify-after.log" 2>&1
+  ports_after="$(shasum -a 256 "$ports_file" 2>/dev/null || sha256sum "$ports_file")"
+  [[ "$ports_before" == "$ports_after" ]]
 
   if command -v direnv >/dev/null 2>&1; then
     direnv allow "$path" >/dev/null 2>&1
