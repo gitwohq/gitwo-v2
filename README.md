@@ -69,7 +69,7 @@ bash test-installer.sh
 ```
 
 GitHub Actions runs smoke and provider tests on Ubuntu and macOS.
-A real Rails/PostgreSQL/Redis E2E suite is planned separately; until it passes,
+A separate Linux Rails/PostgreSQL/Redis E2E workflow is included; until it passes,
 the project should be considered pre-release.
 
 See [release notes](README-RELEASE.md) and [Gitwo docs](gitwo/README.md).

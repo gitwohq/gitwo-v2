@@ -20,6 +20,6 @@ Safety:
 
 Known limitations:
 - Real external provider API calls need connected accounts/credentials and have not been exercised against a private project.
-- E2E across live Puma/PostgreSQL/Portless is not included in this release.
+- An experimental Linux E2E job now exercises Rails, PostgreSQL, Redis and direct-mode Puma; its results must be verified on GitHub Actions. Portless HTTPS remains out of scope for this E2E job.
 - Existing legacy project-specific setup must stay on its previous local Gitwo version until migrated and verified.
 - Source checkout must remain on its configured branch. No automatic mutation of that branch.
