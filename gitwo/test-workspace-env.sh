@@ -71,6 +71,16 @@ for name in alpha beta; do
   [[ -f "$path/.envrc" && ! -L "$path/.envrc" ]]
   [[ -z "$(git -C "$path" status --porcelain --untracked-files=all)" ]]
   grep -qF 'source_env ' "$path/.envrc"
+  grep -qF 'export GITWO_DIRENV_WORKSPACE=' "$path/.envrc"
+  # Emulate source_env evaluating from the directory of its helper script.
+  (
+    cd "$tmp"
+    export GITWO_DIRENV_WORKSPACE="$path"
+    source "$here/direnv.sh"
+    [[ "$GITWO_WORKSPACE" == develop-1 ]]
+    [[ "$GITWO_DB_DEV" == "${name}_develop_1_development" ]]
+    [[ "$PWD" == "$path" ]]
+  )
   grep -qxF '/.envrc' "$tmp/work/$name/.git/info/exclude"
   (
     cd "$path"

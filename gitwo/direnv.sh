@@ -3,7 +3,11 @@
 # This script must not execute Rails code, start services, or change tracked files.
 set -euo pipefail
 
-workspace="$(pwd -P)"
+# direnv's source_env may evaluate this file outside the .envrc directory.
+# Use the workspace path captured when the managed .envrc was generated.
+# Explicit path is used by direnv. Direct verification already runs in the worktree.
+workspace="$(cd -- "${GITWO_DIRENV_WORKSPACE:-$PWD}" && pwd -P)"
+cd -- "$workspace"
 GITWO_PROJECT_ROOT="$workspace"
 export GITWO_PROJECT_ROOT
 # Never inherit a previous workspace's calculated identifiers.
