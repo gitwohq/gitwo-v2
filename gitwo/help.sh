@@ -12,6 +12,10 @@ Usage: gitwo <command> [arguments] [options]
 Workspace:
   new TYPE ISSUE [OPTIONS]       Create a numbered issue worktree (seed by default)
   new develop [OPTIONS]          Create develop-1, develop-2,... without an issue tracker
+  workspace create ...           Preferred alias for gitwo new (uses same lifecycle)
+  workspace enter [WORKSPACE]    Enter a workspace (alias for checkout)
+  workspace env init [WORKSPACE] Verify native Rails DB isolation and generate direnv .envrc
+  workspace env verify [...]     Re-check native development/test Rails DB targets
   checkout [WORKSPACE]           Change shell directory to worktree (alias: co, switch)
   base                           Change to the permanent develop worktree
   list [--json]                  List local Git worktrees (alias: ls)
@@ -120,7 +124,16 @@ Legacy: gitwo init WORKSPACE --adopt-db; preferred: gitwo workspace adopt WORKSP
 EOF
     ;;
   detect) printf 'Usage: gitwo detect [--project=PATH] [--json]\nRead-only project and Git workflow detection.\n' ;;
-  workspace) printf 'Usage: gitwo workspace adopt [WORKSPACE] [--adopt-db]\nVerify and adopt an existing local DB without modifying it.\n' ;;
+  workspace) cat <<'EOF'
+Usage: gitwo workspace <create|enter|env|adopt>
+  create <feature|hotfix|bugfix> ISSUE [OPTIONS]  Alias for gitwo new
+  create develop [OPTIONS]                   Alias for gitwo new develop
+  enter [WORKSPACE]                          Alias for gitwo checkout
+  env init [WORKSPACE]                       Verify native Rails DB targets and set up direnv
+  env verify [WORKSPACE]                     Re-check native DB targets
+  adopt [WORKSPACE] [--adopt-db]             Verify and adopt existing local DB
+EOF
+    ;;
   setup) cat <<'EOF'
 Usage: gitwo setup [WORKSPACE] [--db=schema|baseline] [--seed|--no-seed] [--dump=PATH] [--rebuild-db] [--test] [--verbose]
 Seeds only freshly created schema DBs. Restore only into new DB. Rebuild requires explicit confirmation.

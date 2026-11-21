@@ -53,7 +53,7 @@ gitwo() {
     redis) required_script=redis.sh ;;
     init) required_script=onboard.rb ;;
     detect) required_script=onboard.rb ;;
-    workspace) required_script=init.sh ;;
+    workspace) required_script=workspace-env.sh ;;
     setup) required_script=setup.sh ;;
     version|--version) required_script=VERSION ;;
     doctor) required_script=doctor.sh ;;
@@ -76,14 +76,24 @@ gitwo() {
       target="$("$GITWO_LOCAL_DIR/new.sh" "$@")" || return $?
       [[ -d "$target" ]] || { print -u2 -- "gitwo: invalid worktree path: $target"; return 1; }
       builtin cd -- "$target" || return $?
-      _gitwo_activate_app_host
+      _gitwo_deactivate_app_host
+      if [[ -f .envrc ]]; then
+        print -u2 -- 'gitwo: workspace environment uses direnv. Review .envrc and run direnv allow . once.'
+      else
+        print -u2 -- 'gitwo: workspace environment is not activated. Run gitwo workspace env init after Rails setup.'
+      fi
       print -P -- "%F{green}gitwo%f  →  ${PWD}"
       ;;
     checkout|co|switch)
       [[ $# -le 1 ]] || { print -u2 -- 'Usage: gitwo checkout [ENG-123-feature-1]'; return 2; }
       target="$("$GITWO_LOCAL_DIR/checkout.sh" "${1:-}")" || return $?
       builtin cd -- "$target" || return $?
-      _gitwo_activate_app_host
+      _gitwo_deactivate_app_host
+      if [[ -f .envrc ]]; then
+        print -u2 -- 'gitwo: workspace environment uses direnv. Review .envrc and run direnv allow . once.'
+      else
+        print -u2 -- 'gitwo: workspace environment is not activated. Run gitwo workspace env init after Rails setup.'
+      fi
       print -P -- "%F{green}gitwo%f  →  ${PWD}"
       ;;
     base)
@@ -164,9 +174,15 @@ gitwo() {
       ruby "$GITWO_LOCAL_DIR/onboard.rb" detect "$@"
       ;;
     workspace)
-      [[ "${1:-}" == adopt ]] || { print -u2 -- 'Usage: gitwo workspace adopt [WORKSPACE] [--adopt-db]'; return 2; }
-      shift
-      "$GITWO_LOCAL_DIR/init.sh" "$@"
+      local workspace_action="${1:-}"
+      [[ $# -eq 0 ]] || shift
+      case "$workspace_action" in
+        create) gitwo new "$@" ;;
+        enter|checkout) gitwo checkout "$@" ;;
+        env) "$GITWO_LOCAL_DIR/workspace-env.sh" "$@" ;;
+        adopt) "$GITWO_LOCAL_DIR/init.sh" "$@" ;;
+        *) print -u2 -- 'Usage: gitwo workspace <create|enter|env|adopt> ...'; return 2 ;;
+      esac
       ;;
     setup|run)
       "$GITWO_LOCAL_DIR/$action.sh" "$@"

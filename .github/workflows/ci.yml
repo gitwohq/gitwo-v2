@@ -108,7 +108,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client redis-server redis-tools
+          sudo apt-get install -y -qq postgresql-client redis-server redis-tools direnv
       - name: Real Rails and PostgreSQL E2E
         shell: bash
         env:
@@ -145,7 +145,7 @@ jobs:
       - name: Install PostgreSQL 16, Redis and Portless 0.18.1
         shell: bash
         run: |
-          brew install postgresql@16 redis
+          brew install postgresql@16 redis direnv
           echo "$(brew --prefix postgresql@16)/bin" >> "$GITHUB_PATH"
           npm install -g portless@0.18.1
       - name: Start temporary PostgreSQL on loopback

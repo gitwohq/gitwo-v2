@@ -239,6 +239,11 @@ if [[ "$setup" == yes ]]; then
   [[ "$rebuild_db" == yes ]] && args+=(--rebuild-db)
   gitwo_ui_section "02  Rails / setup"
   "$GITWO_DIR/setup.sh" "${args[@]}" >&2
+  # Activate native Rails commands only after checking BOTH development and test
+  # database configurations without a Gitwo command wrapper.
+  if ! "$GITWO_DIR/workspace-env.sh" init "$target" >&2; then
+    gitwo_warn 'Workspace created, but native activation is not configured. Run gitwo workspace env init after reviewing database.yml.'
+  fi
 else
   gitwo_warn 'Rails setup skipped. Run setup.sh explicitly when ready.'
 fi
