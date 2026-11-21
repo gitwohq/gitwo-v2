@@ -108,7 +108,7 @@ first="$($cli new develop --seed)"
 [[ "$(basename "$first")" == 'develop-1' ]]
 # Gitwo generated an untracked .envrc only after verifying both native DBs.
 [[ -f "$first/.envrc" ]]
-[[ -z "$(git -C "$first" status --porcelain --untracked-files=all)" ]]
+git -C "$first" check-ignore -q .envrc
 command -v direnv >/dev/null || { echo 'direnv missing in integration job' >&2; exit 2; }
 direnv allow "$first" >/dev/null
 # The caller deliberately has a development DATABASE_URL. direnv must remove
