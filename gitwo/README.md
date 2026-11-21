@@ -84,3 +84,10 @@ does not allocate ports or start Redis. App-specific Redis clients must select
 `GITWO_DEV_REDIS_URL` or `GITWO_TEST_REDIS_URL` using `Rails.env`.
 
 See [workspace activation](../docs/workspace-activation.md).
+
+## Runtime services
+
+Set `services.backend: native|compose` in `gitwo.yml`. Compose is opt-in and
+Gitwo-managed, with distinct per-workspace ports and database volume. The
+application's own compose.yaml is never executed. See docs/workspace-activation.md
+for `gitwo services up|down|status` and native Portless alias management.

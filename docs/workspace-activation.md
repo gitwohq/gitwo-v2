@@ -151,3 +151,41 @@ selected Ruby's `bin/` directory to `PATH` without altering tracked files.
   commands in another workspace, but is not needed for normal daily work.
 - If direnv is not installed, direct commands are **not** claimed isolated;
   install/approve direnv before running destructive Rails DB tasks.
+
+## Service backend: native or managed Compose
+
+`gitwo detect --json` reports Compose files at the repository root without
+executing them. `gitwo init` offers `services.backend: native|compose`. The
+noninteractive default is **native**, even if an application Compose file exists.
+
+For `compose`, Gitwo generates its own private Compose file in the selected
+workspace state directory. It does not read or run the application's `compose.yml`.
+Each workspace gets its own Compose project name, PostgreSQL 16 volume, Redis
+for development/test, and published loopback ports. The selected PostgreSQL
+password is stored in an owner-readable state file and exported by direnv for
+native Rails commands. `gitwo services down` leaves the DB volume intact.
+
+```sh
+gitwo services up develop-1
+gitwo services status develop-1
+gitwo services down develop-1
+```
+
+This does not remove the need for environment-specific `config/database.yml` and
+Redis settings while Rails is running on the host. Do not use Docker Compose's
+`down -v` unless intentionally deleting the workspace's persistent data.
+
+For native `bin/rails server` through Portless, register one static alias after
+reviewing/allowing the workspace `.envrc`:
+
+```sh
+gitwo workspace proxy register develop-1
+bin/rails server
+gitwo workspace proxy status develop-1
+gitwo workspace proxy unregister develop-1
+```
+
+These aliases use an existing reserved `PORT`; they are not registered inside
+`direnv`, and `gitwo up` must not be run concurrently while a static alias is
+registered. The registration refuses existing foreign routes and never stops the
+shared Portless proxy.

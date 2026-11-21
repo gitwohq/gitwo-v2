@@ -196,3 +196,52 @@ jobs:
           if test -d "$RUNNER_TEMP/gitwo-postgres"; then
             pg_ctl -D "$RUNNER_TEMP/gitwo-postgres" -m fast stop || true
           fi
+
+  rails-compose:
+    name: 06 - Linux Rails and managed Compose E2E
+    needs: rails-linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: gitwo_ci
+          POSTGRES_PASSWORD: local_ci_only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gitwo_ci -d postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+        with:
+          ruby-version: '3.3.14'
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          install: false
+      - name: Install PostgreSQL client, Redis CLI, and direnv
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client redis-tools redis-server direnv
+          docker compose version
+      - name: Real Rails and isolated Docker Compose services
+        shell: bash
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: gitwo_ci
+          PGPASSWORD: local_ci_only
+          GITWO_DB_HOST: 127.0.0.1
+          GITWO_DB_USER: gitwo_ci
+          GITWO_SERVICES_BACKEND: compose
+          GITWO_PROXY: none
+          GITWO_BOOTSTRAP: schema
+          RAILS_ENV: development
+        run: time bash tests/e2e/rails-postgres.sh
