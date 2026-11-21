@@ -168,7 +168,13 @@ class GitwoFixtureTest < ActiveSupport::TestCase
 end
 RUBY
 "$cli" run develop-1 minitest test/models/gitwo_fixture_test.rb > "$work/minitest.log"
-"$cli" run develop-1 test test/models/gitwo_fixture_test.rb > "$work/test-auto.log"
+# The fixture intentionally has both frameworks. Auto-detection must reject
+# ambiguity instead of silently running only one suite.
+if "$cli" run develop-1 test test/models/gitwo_fixture_test.rb > "$work/test-auto.log" 2> "$work/test-auto.err"; then
+  echo 'Expected explicit runner selection for mixed RSpec/Minitest project' >&2
+  exit 1
+fi
+grep -q 'Both Minitest and RSpec detected' "$work/test-auto.err"
 "$cli" status develop-1 --json > "$work/status-1.json"
 ruby -rjson -e 'x=JSON.parse(File.read(ARGV.fetch(0))); abort x.inspect unless x["data_source"] == "seeded"' "$work/status-1.json"
 [[ "$(psql -d gitwo_fixture_develop_1_development -Atqc "SELECT COUNT(*) FROM widgets WHERE name='gitwo-e2e-seeded'")" == 1 ]]
