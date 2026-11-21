@@ -28,7 +28,7 @@ pg_isready -h "${PGHOST:-127.0.0.1}" -U "${PGUSER:?}" -d postgres
 # A real Rails installation is required: do not mock ActiveRecord, Bundler or Puma.
 gem install rails --version '7.2.4' --no-document
 rails _7.2.4_ new "$app" --database=postgresql --skip-git --skip-bundle \
-  --skip-javascript --skip-hotwire --skip-jbuilder --skip-test --skip-system-test \
+  --skip-javascript --skip-hotwire --skip-jbuilder --skip-system-test \
   --skip-docker --skip-kamal > "$work/rails-new.log"
 cd "$app"
 # Keep the Ruby version identical for ruby/setup-ruby and mise.
@@ -85,6 +85,21 @@ cli="$install_prefix/bin/gitwo"
 # Exercise schema load, seed once, and isolated test DB creation.
 first="$($cli new develop --seed)"
 [[ "$(basename "$first")" == 'develop-1' ]]
+# The generated Rails app uses Minitest. Ensure the CLI selects the isolated
+# test DB for both the explicit and auto-detected test commands.
+mkdir -p "$first/test/models"
+cat > "$first/test/models/gitwo_fixture_test.rb" <<'RUBY'
+require "test_helper"
+
+class GitwoFixtureTest < ActiveSupport::TestCase
+  test "isolated workspace test database" do
+    assert_equal "gitwo_fixture_develop_1_test", ActiveRecord::Base.connection_db_config.database
+    assert Widget.create!(name: "gitwo-minitest").persisted?
+  end
+end
+RUBY
+"$cli" run develop-1 minitest test/models/gitwo_fixture_test.rb > "$work/minitest.log"
+"$cli" run develop-1 test test/models/gitwo_fixture_test.rb > "$work/test-auto.log"
 "$cli" status develop-1 --json > "$work/status-1.json"
 ruby -rjson -e 'x=JSON.parse(File.read(ARGV.fetch(0))); abort x.inspect unless x["data_source"] == "seeded"' "$work/status-1.json"
 [[ "$(psql -d gitwo_fixture_develop_1_development -Atqc "SELECT COUNT(*) FROM widgets WHERE name='gitwo-e2e-seeded'")" == 1 ]]
@@ -135,4 +150,4 @@ done
 "$cli" status develop-1 --check-http > "$work/health-status.log"
 "$cli" down develop-1
 "$cli" remove develop-2 --dry-run > "$work/remove-dry-run.log" 2>&1 || true
-printf '[PASS] real Rails+PostgreSQL+Redis E2E: two worktrees, seeds, dump, restore, Puma, HTTP, down\n'
+printf '[PASS] real Rails+PostgreSQL+Redis E2E: two worktrees, Minitest, seeds, dump, restore, Puma, HTTP, down\n'

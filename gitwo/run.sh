@@ -4,10 +4,13 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/_common.sh"
 source "$GITWO_DIR/_runtime.sh"
 source "$GITWO_DIR/_lifecycle.sh"
 source "$GITWO_DIR/_prepare.sh"
+source "$GITWO_DIR/_testing.sh"
 usage() { cat >&2 <<'USAGE'
-Usage: run.sh [ENG-5303-feature-1] <server|rspec|rails|console|sidekiq> [args...]
+Usage: run.sh [ENG-5303-feature-1] <server|test|minitest|rspec|rails|console|sidekiq> [args...]
   server    Start isolated Redis and Puma via Portless at https://<workspace>.<domain>.localhost
-  rspec     Run tests with isolated PostgreSQL test DB and separate test Redis
+  test      Auto-select Minitest or RSpec (errors if both are configured)
+  minitest  Run Rails Minitest with isolated test PostgreSQL and Redis
+  rspec     Run RSpec with isolated test PostgreSQL and Redis
   rails     Run Rails task with isolated development DB and Redis
   console   Start Rails console with isolated development DB and Redis
   sidekiq   Start worker using workspace Redis (requires GITWO_ENABLE_SIDEKIQ=1)
@@ -72,9 +75,9 @@ case "$what" in
       gitwo_die 'GITWO_PROXY must be portless or none'
     fi
     ;;
-  rspec)
+  test|minitest|rspec)
     gitwo_runtime_environment "$target" test
-    gitwo_rails test bundle exec rspec "$@"
+    gitwo_test_run "$what" "$@"
     ;;
   rails)
     [[ "${1:-}" != db:drop && "${1:-}" != db:reset ]] || gitwo_die 'Destructive DB tasks are intentionally blocked'

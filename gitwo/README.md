@@ -57,3 +57,17 @@ For commands use `gitwo --help`, `gitwo new --help`, `gitwo status` and `gitwo d
 ## License and security
 
 MIT (see [LICENSE](../LICENSE)). See [SECURITY.md](../SECURITY.md) for responsible reporting and local trust boundaries. See [release security review](../docs/release-security-review.md).
+
+## Rails tests (Minitest and RSpec)
+
+```sh
+gitwo run test                        # Auto-select when exactly one suite exists
+gitwo run minitest                    # bundle exec rails test
+gitwo run minitest test/models/user_test.rb
+gitwo run rspec                       # bundle exec rspec
+```
+
+All commands use the selected workspace's isolated test PostgreSQL database and Redis.
+If both Minitest and RSpec are present, `run test` refuses to guess; use an explicit runner.
+For `rails-standard`, `gitwo setup --test` uses the same detection. The legacy
+`rails-webpack` adapter retains its existing focused RSpec setup checks.

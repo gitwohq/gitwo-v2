@@ -31,6 +31,7 @@ Redis and Portless. `gitwo doctor --deps` checks the local prerequisites.
 ```sh
 gitwo new feature ENG-123
 gitwo up
+gitwo run test  # Auto-detects Minitest or RSpec
 gitwo status
 gitwo logs
 gitwo down

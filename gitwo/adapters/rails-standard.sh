@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Opt-in conventional Rails adapter. Never modifies tracked Rails files.
+source "$GITWO_DIR/_testing.sh"
 gitwo_adapter_validate_repository() {
   [[ -f Gemfile && -f Gemfile.lock && -f config/application.rb ]] || gitwo_die 'rails-standard needs Gemfile, Gemfile.lock and config/application.rb'
   [[ -f db/schema.rb || -f db/structure.sql ]] || gitwo_die 'rails-standard requires a committed Rails schema snapshot'
@@ -36,6 +37,6 @@ gitwo_adapter_init_tables() {
 }
 gitwo_adapter_verify_tests() {
   if [[ "$want_test" == yes ]]; then
-    gitwo_ui_run 'Run Rails test suite' gitwo_rails test bundle exec rails test
+    gitwo_ui_run 'Run Rails test suite' gitwo_test_run test
   fi
 }
