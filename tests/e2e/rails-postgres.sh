@@ -293,7 +293,34 @@ if [[ "$GITWO_PROXY" == portless ]]; then
   "$cli" workspace proxy unregister develop-1
 fi
 if [[ "${GITWO_SERVICES_BACKEND:-native}" == compose ]]; then
+  # Restart each managed stack explicitly after the Rails server lifecycle.
+  "$cli" services up develop-1
+  "$cli" services up develop-2
   "$cli" services status develop-1 > "$work/compose-status.log"
+  compose_first="$(find "$HOME/.local/state/gitwo/projects" -path '*/runtime/develop-1/compose' -type d -print -quit)"
+  compose_second="$(find "$HOME/.local/state/gitwo/projects" -path '*/runtime/develop-2/compose' -type d -print -quit)"
+  [[ -n "$compose_first" && -n "$compose_second" ]]
+  [[ "$(cat "$compose_first/pg.port")" != "$(cat "$compose_second/pg.port")" ]]
+
+  ports_first="$(find "$HOME/.local/state/gitwo/projects" -name 'develop-1.ports' -print -quit)"
+  ports_second="$(find "$HOME/.local/state/gitwo/projects" -name 'develop-2.ports' -print -quit)"
+  redis_first="$(awk -F= '$1=="REDIS_DEV_PORT" {print $2}' "$ports_first")"
+  redis_second="$(awk -F= '$1=="REDIS_DEV_PORT" {print $2}' "$ports_second")"
+  [[ -n "$redis_first" && -n "$redis_second" && "$redis_first" != "$redis_second" ]]
+  redis-cli -h 127.0.0.1 -p "$redis_second" SET gitwo-second-workspace isolated > /dev/null
+  [[ -z "$(redis-cli -h 127.0.0.1 -p "$redis_first" GET gitwo-second-workspace)" ]]
+
+  # Stopping one workspace must not stop a sibling or erase its PostgreSQL volume.
+  "$cli" services down develop-1
+  [[ "$(fixture_psql develop-2 -d gitwo_fixture_develop_2_development -Atqc "SELECT COUNT(*) FROM widgets WHERE name='gitwo-e2e-seeded'")" == 1 ]]
+  [[ "$(redis-cli -h 127.0.0.1 -p "$redis_second" GET gitwo-second-workspace)" == isolated ]]
+  if fixture_psql develop-1 -d postgres -Atqc 'SELECT 1' > /dev/null 2>&1; then
+    echo 'Stopped workspace PostgreSQL remained accessible' >&2
+    exit 1
+  fi
+  "$cli" services up develop-1
+  [[ "$(fixture_psql develop-1 -d gitwo_fixture_develop_1_development -Atqc "SELECT COUNT(*) FROM widgets WHERE name='gitwo-e2e-seeded'")" == 1 ]]
+  [[ -f "$compose_first/pg.password" && -f "$compose_first/pg.port" ]]
 fi
 "$cli" remove develop-2 --dry-run > "$work/remove-dry-run.log" 2>&1 || true
-printf '[PASS] real Rails+PostgreSQL+Redis E2E: two worktrees, native RSpec/Minitest, direnv isolation, seeds, dump/restore, Puma, HTTP, down\n'
+printf '[PASS] real Rails+PostgreSQL+Redis E2E: two worktrees, native RSpec/Minitest, direnv isolation, seeds, dump/restore, Puma, HTTP, scoped Compose lifecycle\n'
