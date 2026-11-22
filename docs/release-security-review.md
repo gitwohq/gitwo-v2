@@ -42,3 +42,15 @@ This is a targeted code review, not a formal third-party penetration test.
 
 Portless HTTPS E2E passed on hosted macOS and Rails/PostgreSQL/Redis E2E passed on hosted Ubuntu.
 The fixture is synthetic, and no independent security audit has been performed. Do not claim all security risks are eliminated.
+
+
+## Release candidate verification (2026-11-22)
+
+- Synthetic Rails 8.1.4.1 end-to-end jobs cover native and managed Compose services.
+- Five parallel Compose workspaces are checked for unique reserved ports.
+- Stopped Compose workspaces pass safe removal dry-runs; unknown/running services remain blocked.
+- Runtime `.ports` metadata now rejects duplicate/missing keys and invalid TCP port values.
+- Release archives are built from committed tracked files, SHA-256 hashed,
+  extracted and installed in Linux and macOS CI. Modified package contents are rejected.
+- Package hashes provide integrity, **not authenticated publisher provenance**.
+  Signing/attestations and physical Mac acceptance remain outstanding gates.

@@ -37,10 +37,16 @@ else
 fi
 if [[ "${1:-}" == --deps ]]; then
   missing=0
-  binaries=(git ruby mise node psql createdb pg_dump pg_restore lsof)
+  binaries=(git ruby mise psql createdb pg_dump pg_restore lsof)
   if [[ "${GITWO_SERVICES_BACKEND:-native}" == compose ]]; then
     binaries+=(docker)
-    docker compose version >/dev/null 2>&1 || { echo '[MISSING] Docker Compose V2' >&2; missing=1; }
+    if ! command -v docker >/dev/null 2>&1 || ! docker compose version >/dev/null 2>&1; then
+      echo '[MISSING] Docker Compose V2' >&2
+      missing=1
+    elif ! docker info >/dev/null 2>&1; then
+      echo '[MISSING] Docker daemon is not available (start Docker Desktop)' >&2
+      missing=1
+    fi
   else
     binaries+=(redis-server redis-cli)
   fi
@@ -52,7 +58,17 @@ if [[ "${1:-}" == --deps ]]; then
       missing=1
     fi
   done
+  if ! command -v direnv >/dev/null 2>&1; then
+    printf '[WARN] direnv missing; direct Rails commands will not activate workspace variables\n' >&2
+  fi
   if [[ "${GITWO_PROXY:-none}" == portless ]]; then
+    if ! command -v node >/dev/null 2>&1; then
+      printf '[MISSING] Node.js 24+ required for Portless\n' >&2
+      missing=1
+    elif ! node -e 'process.exit(parseInt(process.versions.node, 10) >= 24 ? 0 : 1)' >/dev/null 2>&1; then
+      printf '[MISSING] Portless requires Node.js 24+\n' >&2
+      missing=1
+    fi
     if ! command -v portless >/dev/null 2>&1; then
       printf '[MISSING] portless (selected by project config)\n' >&2
       missing=1

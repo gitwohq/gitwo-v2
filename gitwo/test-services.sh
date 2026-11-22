@@ -96,5 +96,33 @@ bash "$here/services.sh" status develop-2
 bash "$here/services.sh" down develop-2
 [[ "$(awk '$1=="compose" && $2=="--project-name" && $NF=="down" { print $3 }' "$tmp/docker.log")" == "$(printf '%s\n%s' "$project_first" "$project_second")" ]]
 ! grep -q -- 'down -v' "$tmp/docker.log"
+# A stopped Compose workspace must pass the safe, non-destructive removal preflight.
+bash "$here/remove.sh" develop-1 --dry-run > "$tmp/remove-preview.log" 2>&1
+[[ -d "$tmp/worktrees/develop-1" ]]
+grep -Fq 'Dry run complete' "$tmp/remove-preview.log"
 [[ -f "$root/pg.password" && -f "$root/pg.port" ]]
-printf '[PASS] Compose isolation, immutable credentials, symlink safety and scoped lifecycle\n'
+# Start three more workspaces concurrently. Locking must prevent PostgreSQL,
+# Redis and web port collisions even when multiple terminals race to create them.
+for number in 3 4 5; do
+  git -C "$tmp/app" worktree add -q -b "experiment/develop-$number" "$tmp/worktrees/develop-$number"
+done
+pids=()
+for number in 3 4 5; do
+  bash "$here/services.sh" up "develop-$number" > "$tmp/parallel-$number.log" 2>&1 &
+  pids+=("$!")
+done
+for pid in "${pids[@]}"; do wait "$pid"; done
+
+pg_files=( "$tmp"/state/projects/*/runtime/develop-*/compose/pg.port )
+[[ "${#pg_files[@]}" == 5 ]]
+pg_unique="$(cat "${pg_files[@]}" | sort -u | wc -l | tr -d ' ')"
+[[ "$pg_unique" == 5 ]] || { echo 'Concurrent Compose PostgreSQL port collision' >&2; exit 1; }
+runtime_files=( "$tmp"/state/projects/*/runtime/develop-*.ports )
+[[ "${#runtime_files[@]}" == 5 ]]
+unique_runtime="$(cat "${runtime_files[@]}" | cut -d= -f2 | sort -u | wc -l | tr -d ' ')"
+[[ "$unique_runtime" == 15 ]] || { echo 'Concurrent Redis/web port collision' >&2; exit 1; }
+for number in 3 4 5; do
+  bash "$here/services.sh" down "develop-$number"
+done
+! grep -q -- 'down -v' "$tmp/docker.log"
+printf '[PASS] Compose isolation, immutable credentials, 5 concurrent workspaces, and safe lifecycle\n'

@@ -34,5 +34,15 @@ GITWO_PROJECT_ROOT="$tmp/project" GITWO_STATE="$tmp/state" GITWO_DB_PREFIX=fixtu
     exit 1
   fi
   [[ ! -e "$malicious" ]] || { echo "Port command executed" >&2; exit 1; }
+  printf "REDIS_DEV_PORT=16380\nREDIS_DEV_PORT=16381\nWEB_PORT=12000\n" > "$ports"
+  if (gitwo_runtime_existing_load "$workspace") >/dev/null 2>&1; then
+    echo "Duplicate Redis development key was accepted" >&2
+    exit 1
+  fi
+  printf "REDIS_DEV_PORT=16380\nREDIS_TEST_PORT=19380\nWEB_PORT=99999\n" > "$ports"
+  if (gitwo_runtime_existing_load "$workspace") >/dev/null 2>&1; then
+    echo "Out-of-range workspace port was accepted" >&2
+    exit 1
+  fi
 ' bash "$root" "$tmp"
 echo '[PASS] state and ports metadata reject executable payloads'

@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for script in gitwo/*.sh gitwo/adapters/*.sh tests/e2e/*.sh tests/*.sh install.sh test-installer.sh; do
+          for script in gitwo/*.sh gitwo/adapters/*.sh tests/e2e/*.sh tests/*.sh scripts/*.sh install.sh test-installer.sh; do
             bash -n "$script"
           done
           for script in gitwo/*.rb; do ruby -c "$script" >/dev/null; done
@@ -55,6 +55,9 @@ jobs:
       - name: Installer and SHA-256 regression
         shell: bash
         run: time bash test-installer.sh
+      - name: Source release archive and extracted installer
+        shell: bash
+        run: time bash tests/test-release-package.sh
 
   regression-macos:
     name: 03 - macOS regression and installer
@@ -74,6 +77,9 @@ jobs:
       - name: Installer and SHA-256 regression
         shell: bash
         run: time bash test-installer.sh
+      - name: Source release archive and extracted installer
+        shell: bash
+        run: time bash tests/test-release-package.sh
 
   rails-linux:
     name: 04 - Linux Rails and PostgreSQL E2E
@@ -243,5 +249,63 @@ jobs:
           GITWO_SERVICES_BACKEND: compose
           GITWO_PROXY: none
           GITWO_BOOTSTRAP: schema
+          RAILS_ENV: development
+        run: time bash tests/e2e/rails-postgres.sh
+
+  rails81-linux:
+    name: 07 - Rails 8.1 native or Compose E2E (${{ matrix.backend }})
+    needs: [regression-linux, rails-linux]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [native, compose]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: gitwo_ci
+          POSTGRES_PASSWORD: local_ci_only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gitwo_ci -d postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
+        with:
+          ruby-version: '3.3.14'
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          install: false
+      - name: Install PostgreSQL, Redis and direnv
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client redis-server redis-tools direnv
+          if [[ "$GITWO_SERVICES_BACKEND" == compose ]]; then docker compose version; fi
+        env:
+          GITWO_SERVICES_BACKEND: ${{ matrix.backend }}
+      - name: Real Rails 8.1 workspace end-to-end
+        shell: bash
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: gitwo_ci
+          PGPASSWORD: local_ci_only
+          GITWO_DB_HOST: 127.0.0.1
+          GITWO_DB_USER: gitwo_ci
+          GITWO_SERVICES_BACKEND: ${{ matrix.backend }}
+          GITWO_PROXY: none
+          GITWO_BOOTSTRAP: schema
+          GITWO_E2E_RAILS_VERSION: '8.1.4.1'
+          GITWO_E2E_RSPEC_RAILS_VERSION: '8.1.0'
           RAILS_ENV: development
         run: time bash tests/e2e/rails-postgres.sh
