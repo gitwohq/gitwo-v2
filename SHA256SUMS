@@ -65,7 +65,7 @@ a7076773f388951128ad5b45adfec79b3c3b5655747da38c145f3a0973417375  ./gitwo/team-o
 fdf3afde211474ecda0a58840651aa6e81e5844f0578a5b006348caf6deaf8bb  ./gitwo/test-all.sh
 7bd7fd3442ff4627b48e46e14529c1d7d4f94056e57bdb19ff6866c3d3169f09  ./gitwo/test-providers.sh
 9c7f3c8a880216a9d3286f52241463b050ceca53195453625705d88870dffd18  ./gitwo/test-rails-config.sh
-966ce943efa2a5f3c730b1f431838d35c5e90bb43cd12a4bb4471db1edfab42b  ./gitwo/test-scopes.sh
+90c03cf3cc146facc8047991d4525bf92e8c9732fae1d5e21586ed79380272db  ./gitwo/test-scopes.sh
 ebdb18612a8933f731e59e1dec8d42342a58e83733ae0b7370b78e304f3cb455  ./gitwo/test-security.sh
 d3fefdb4c7fe0d2b8694c4aa93d8725805edb910cd5420f69b72979db0cd2ab1  ./gitwo/test-services.sh
 0f7a78f7c6bdcdc8f09e5ba82853697378d943a7c69001f38e18854b2bf8230e  ./gitwo/test-team-onboard.sh
