@@ -32,7 +32,9 @@ Workspace:
 Tools:
   run [WORKSPACE] MODE [ARGS]    Run Rails, Minitest, RSpec, console or Sidekiq
   setup [WORKSPACE] [OPTIONS]   Initialize Rails environment
-  init [OPTIONS]                Detect project and configure Gitwo
+  init [OPTIONS]                Configure local (default) or team scope
+  config scope|use local|team    Inspect or change active configuration
+  onboard [--scope=...]         Validate scoped configuration and prerequisites
   onboard [--check|--setup]      Adopt committed team gitwo.yml (no repeated init)
   detect [--json]               Inspect repo/framework/workflow without changes
   workspace adopt [WORKSPACE]   Inspect/adopt an existing database
@@ -104,12 +106,13 @@ EOF
     ;;
   status) printf 'Usage: gitwo status [WORKSPACE] [--json] [--check-http]\nInspect Git, DB, provenance and runtime without mutation.\n' ;;
   config) cat <<'EOF'
-Usage: gitwo config <show|path|validate|init> [--json]
+Usage: gitwo config <show|path|validate|scope|use|init> [--json|local|team]
   show        Display effective nonsecret config (supports --json)
   path        Print optional gitwo.yml path
   validate    Validate YAML schema and effective values
   init        Copy the example safely; never overwrite existing gitwo.yml
-Optional gitwo.yml lives beside shell.zsh; gitwo init can generate it from detections.
+Local config is stored outside Git under ~/.config/gitwo/projects/.
+Use gitwo init --scope=team to create project-root gitwo.yml deliberately.
 Use project.adapter=project-rails (legacy) or rails-standard (conventional Rails).
 Environment overrides take precedence. Credentials stay in private per-profile files or gh auth.
 EOF
@@ -121,18 +124,21 @@ EOF
   repair) printf 'Usage: gitwo repair [WORKSPACE]\nRead-only recovery plan.\n' ;;
   doctor) printf 'Usage: gitwo doctor [--deps]\nInspect installation; --deps checks toolchain and Portless TLS.\n' ;;
   onboard) cat <<'EOF'
-Usage: gitwo onboard [--check] [--local] [--json] [--setup [--yes]] [--project=PATH]
-  --check          Validate committed gitwo.yml only, without local dependencies (CI-safe)
+Usage: gitwo onboard [--scope=local|team] [--check] [--local] [--json] [--setup [--yes]] [--project=PATH]
+  --check          Validate selected scope (team requires committed gitwo.yml; CI-safe)
   --check --local  Validate config and developer tools/credentials without modifications
   --setup          Explicitly create a new develop workspace with schema-only DBs
   --yes            Allow explicit --setup without an interactive confirmation
-By default, inspect team config and local dependencies. No automatic gitwo init.
+Default scope is local; use --scope=team for committed team config.
+Interactive mode prompts for project path and remembers the selected scope locally.
 EOF
     ;;
   init) cat <<'EOF'
-Usage: gitwo init [--project=PATH] [--config=PATH] [--yes] [--dry-run] [--json]
+Usage: gitwo init [--scope=local|team] [--project=PATH] [--output=PATH] [--config=PATH] [--yes|--dry-run|--json]
 Auto-detect Rails/PostgreSQL/Sidekiq/Redis, infer Git workflow, and propose defaults.
-Without flags, reuse and validate any existing private Gitwo gitwo.yml.
+Default scope is local: save private YAML outside the project, leave tracked files unchanged.
+Team scope explicitly saves an untracked project-root gitwo.yml for review/commit.
+Interactive prompts suggest the detected primary checkout and scoped config path.
 --config reads and validates an existing YAML; no prompting, no secrets in YAML.
 --yes is noninteractive. --dry-run previews without writes.
 Legacy: gitwo init WORKSPACE --adopt-db; preferred: gitwo workspace adopt WORKSPACE --adopt-db.
