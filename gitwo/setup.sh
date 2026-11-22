@@ -134,7 +134,9 @@ seed_marker="$GITWO_STATE/$(basename "$target").seed-status"
 bootstrap_marker="$GITWO_STATE/$(basename "$target").bootstrap-status"
 data_marker="$GITWO_STATE/$(basename "$target").data-source"
 db_exists="$(gitwo_pg psql --no-psqlrc -d postgres -Atqc "SELECT 1 FROM pg_database WHERE datname = '$GITWO_DB_DEV'" 2>/dev/null)" || gitwo_die "Cannot connect to local PostgreSQL ($GITWO_DB_HOST:$GITWO_DB_PORT as $GITWO_DB_USER)"
-# A failed bootstrap may have left a partially created database. Never adopt it automatically.
+bootstrap_retry_empty=no
+# A failed bootstrap may have left a partially created database. Only retry
+# a failed schema bootstrap when the exact isolated DB has zero user relations.
 if [[ -e "$bootstrap_marker" || -L "$bootstrap_marker" ]]; then
   [[ -f "$bootstrap_marker" && ! -L "$bootstrap_marker" ]] || gitwo_die "Unsafe bootstrap marker: $bootstrap_marker"
   bootstrap_status="$(cat "$bootstrap_marker")"
@@ -145,12 +147,25 @@ if [[ -e "$bootstrap_marker" || -L "$bootstrap_marker" ]]; then
         gitwo_warn 'A previous bootstrap was interrupted before creating the development DB. Retrying safely.'
         rm -f "$bootstrap_marker"
       elif [[ "$rebuild_db" == no ]]; then
-        gitwo_die "Incomplete database bootstrap ($bootstrap_status): $GITWO_DB_DEV. Inspect the DB before any explicit rebuild."
+        if [[ "$want_db" == schema && "$bootstrap_status" == failed && "$db_exists" == 1 &&
+              ! -e "$marker" && ! -e "$seed_marker" && ! -e "$data_marker" ]]; then
+          # Read-only check. Never drop an existing DB or retry a partial schema.
+          user_relations="$(gitwo_pg psql --no-psqlrc -d "$GITWO_DB_DEV" -Atqc "SELECT COUNT(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema' AND c.relkind IN ('r','p','v','m','S','f')" 2>/dev/null)" ||
+            gitwo_die "Cannot verify failed bootstrap database is empty: $GITWO_DB_DEV"
+          [[ "$user_relations" == 0 ]] ||
+            gitwo_die "Incomplete database bootstrap ($bootstrap_status): $GITWO_DB_DEV contains $user_relations user relations. Refusing automatic recovery; inspect before any explicit rebuild."
+          bootstrap_retry_empty=yes
+          gitwo_warn "Previous schema load failed with an empty isolated DB. Retrying schema without dropping $GITWO_DB_DEV."
+        else
+          gitwo_die "Incomplete database bootstrap ($bootstrap_status): $GITWO_DB_DEV. Inspect the DB before any explicit rebuild."
+        fi
       fi
       ;;
     *) gitwo_die "Invalid bootstrap marker: $bootstrap_marker" ;;
   esac
 fi
+# Treat a verified empty retry as a new schema bootstrap, but skip createdb.
+[[ "$bootstrap_retry_empty" == no ]] || db_exists=''
 if [[ "$rebuild_db" == yes ]]; then
   [[ "$db_exists" == 1 ]] || gitwo_die "Cannot rebuild missing database $GITWO_DB_DEV; omit --rebuild-db to create it"
   [[ -f "$marker" ]] || gitwo_die "No managed DB marker for $GITWO_DB_DEV. Refusing to drop any unverified database."
@@ -185,8 +200,12 @@ else
   # Retain a failed marker on interruption, including during schema load or migrations.
   (umask 077; printf 'running\n' > "$bootstrap_marker")
   trap 'result=$?; if [[ "$result" -ne 0 ]]; then (umask 077; printf "failed\n" > "$bootstrap_marker"); fi' EXIT
-  gitwo_log "Creating isolated DB $GITWO_DB_DEV"
-  gitwo_ui_run "Create $GITWO_DB_DEV" gitwo_pg createdb --encoding=UTF8 "$GITWO_DB_DEV"
+  if [[ "$bootstrap_retry_empty" == yes ]]; then
+    gitwo_log "Reusing verified empty isolated DB $GITWO_DB_DEV"
+  else
+    gitwo_log "Creating isolated DB $GITWO_DB_DEV"
+    gitwo_ui_run "Create $GITWO_DB_DEV" gitwo_pg createdb --encoding=UTF8 "$GITWO_DB_DEV"
+  fi
   if [[ "$want_db" == baseline || "$want_db" == dump ]]; then
     if [[ "$want_db" == dump ]]; then
       dump="$dump_file"

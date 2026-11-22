@@ -12,6 +12,7 @@ bash "$here/test-scopes.sh"
 "$here/test-workspace-env.sh"
 bash "$here/test-application-env.sh"
 "$here/test-rails-config.sh"
+bash "$here/test-rails-standard.sh"
 "$here/test-services.sh"
 "$here/test-security.sh"
 printf '[PASS] Gitwo v4.21 static and isolated integration regression suite\n'

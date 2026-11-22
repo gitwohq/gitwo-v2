@@ -116,7 +116,7 @@ fi
 # No issue provider means no external lookup.
 if [[ "$type" != develop && "$freeform" == no ]]; then
   case "${GITWO_ISSUE_PROVIDER:-jira}" in
-    none) [[ "$offline" == yes || -n "$title" ]] || offline=yes ;;
+    none) [[ "$resume" == yes || "$offline" == yes || -n "$title" ]] || offline=yes ;;
 
   esac
 fi
@@ -257,7 +257,11 @@ new_error() {
     if [[ "$type" == develop ]]; then
       gitwo_warn "Workspace preserved after failure. Retry with: gitwo new develop --resume --instance $instance"
     else
-      gitwo_warn "Workspace preserved after failure. Retry with: $GITWO_DIR/new.sh $type $ticket --resume"
+      # Preserve the exact issue/name and numbered instance in recovery hints.
+      printf -v quoted_issue '%q' "$issue"
+      retry_command="$GITWO_DIR/new.sh $type $quoted_issue"
+      [[ -z "$instance" || "$instance" == 0 ]] || retry_command+=" --instance $instance"
+      gitwo_warn "Workspace preserved after failure. Retry with: $retry_command --resume"
     fi
   fi
   return "$status"

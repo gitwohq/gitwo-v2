@@ -360,7 +360,66 @@ grep -Fq 'Use: gitwo run improve-search-1 rails' "$work/named-setup.log"
 ruby -rjson -e 's=JSON.parse(File.read(ARGV.fetch(0))); abort s.inspect unless s["data_source"]=="schema-only" && s["workspace"]=="improve-search-1"' "$work/named-status.json"
 [[ "$(fixture_psql improve-search-1 -d gitwo_fixture_improve_search_1_development -Atqc 'SELECT COUNT(*) FROM widgets')" == 0 ]]
 "$cli" run improve-search-1 rails runner 'abort unless ActiveRecord::Base.connection_db_config.database == "gitwo_fixture_improve_search_1_development"' > "$work/named-rails.log"
+
+# Custom Rake helpers can read config_for(:database), not ActiveRecord's
+# DATABASE_URL; verify the actual configured target in both environments.
+mkdir -p "$named/lib/tasks"
+cat > "$named/lib/tasks/gitwo_custom_database.rake" <<'RUBY'
+namespace :db do
+  custom_config = Rails.application.config_for(:database)
+  desc "Test custom Rake config for #{custom_config.fetch(:database)}"
+  task :gitwo_custom_database do
+  end
+end
+RUBY
+"$cli" setup "$named" --no-seed > "$work/custom-rake-ok.out" 2> "$work/custom-rake-ok.err"
+cp "$named/config/database.yml" "$work/named-database-original.yml"
+ruby - "$named/config/database.yml" <<'RUBY'
+path = ARGV.fetch(0)
+original = File.read(path)
+updated = original.sub(/(?<=^  database: )<%= ENV.fetch\("GITWO_DB_DEV", "[^"]+"\) %>/, 'gitwo_fixture_development')
+abort 'Expected native Rails database integration' if updated == original
+File.write(path, updated)
+RUBY
+if "$cli" setup "$named" --no-seed > "$work/custom-rake-bad.out" 2> "$work/custom-rake-bad.err"; then
+  echo 'Custom Rails Rake config pointed to the shared DB but setup allowed it' >&2; exit 1
+fi
+grep -Fq 'Custom Rake config_for(:database) must use isolated workspace database' "$work/custom-rake-bad.err"
+cp "$work/named-database-original.yml" "$named/config/database.yml"
+rm "$named/lib/tasks/gitwo_custom_database.rake"
+
 "$cli" list --json | grep -q 'feature/improve-search-1'
+
+# A previous Rails bootstrap may have created the isolated DB but failed
+# before creating tables (e.g. missing local database.yml). Such an EMPTY DB
+# can be resumed without a destructive drop. A partial schema must be refused.
+if [[ "${GITWO_SERVICES_BACKEND:-native}" == native ]]; then
+  retry_worktree="$("$cli" new feature "Retry empty schema" --no-setup)"
+  retry_name="$(basename "$retry_worktree")"
+  [[ "$retry_name" == retry-empty-schema-1 ]]
+  retry_database=gitwo_fixture_retry_empty_schema_1_development
+  createdb "$retry_database"
+  retry_marker="$(find "$HOME/.local/state/gitwo/projects" -name "$retry_name.created-at" -print -quit)"
+  [[ -f "$retry_marker" ]]
+  printf 'failed\n' > "$(dirname "$retry_marker")/$retry_name.bootstrap-status"
+  "$cli" new feature "Retry empty schema" --instance 1 --resume > "$work/retry-empty.out" 2> "$work/retry-empty.err"
+  grep -Fq 'Reusing verified empty isolated DB' "$work/retry-empty.err"
+  [[ "$(psql -d "$retry_database" -Atqc "SELECT COUNT(*) FROM widgets")" == 0 ]]
+  grep -qx 'ready' "$(dirname "$retry_marker")/$retry_name.bootstrap-status"
+
+  partial_worktree="$("$cli" new feature "Reject partial schema" --no-setup)"
+  partial_name="$(basename "$partial_worktree")"
+  partial_database=gitwo_fixture_reject_partial_schema_1_development
+  createdb "$partial_database"
+  psql -d "$partial_database" -qc 'CREATE TABLE incomplete_bootstrap (id integer)'
+  partial_marker="$(find "$HOME/.local/state/gitwo/projects" -name "$partial_name.created-at" -print -quit)"
+  [[ -f "$partial_marker" ]]
+  printf 'failed\n' > "$(dirname "$partial_marker")/$partial_name.bootstrap-status"
+  if "$cli" new feature "Reject partial schema" --instance 1 --resume > "$work/retry-partial.out" 2> "$work/retry-partial.err"; then
+    echo 'Unexpectedly resumed a partially populated database' >&2; exit 1
+  fi
+  grep -Fq 'Refusing automatic recovery' "$work/retry-partial.err"
+fi
 [[ -z "$(git -C "$app" status --porcelain --untracked-files=all)" ]]
 
 printf '[PASS] Rails+PostgreSQL+Redis E2E: named unticketed full setup, worktrees, native tests, direnv, seeds, dump/restore, Puma, Compose\n'
