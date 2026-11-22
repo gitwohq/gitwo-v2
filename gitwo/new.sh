@@ -336,6 +336,6 @@ fi
 if [[ "$setup" == yes ]]; then
   gitwo_ui_done "Ready (development/test databases verified): $target"
 else
-  gitwo_ui_done "Created (not provisioned): $target"
+  gitwo_ui_created "Created (not provisioned): $target"
 fi
 printf '%s\n' "$target"
