@@ -37,9 +37,12 @@ gitwo new feature improve-search  # Full isolated Rails setup, no issue key
 gitwo config path
 ```
 
-For automatic Rails setup, the app must already support Gitwo development
-and test DB isolation. Local init never silently patches `config/database.yml`.
-To experiment without changing project files, use `--no-setup` initially.
+A named feature runs full Rails setup by default: Ruby/Bundler dependencies,
+isolated development/test PostgreSQL and runtime services. This can work
+without a Git remote or any issue tracker. Local init never silently patches
+`config/database.yml`. Normal `bin/rails` in a workspace still requires
+verified database integration; `gitwo run` uses the isolated environment.
+Use `--no-setup` only when deliberately testing worktree creation alone.
 
 ## Team mode
 
