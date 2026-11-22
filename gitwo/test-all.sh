@@ -6,6 +6,7 @@ for script in "$here"/*.rb; do ruby -c "$script" >/dev/null; done
 "$here/test-universal.sh"
 "$here/test-providers.sh"
 bash "$here/test-team-onboard.sh"
+bash "$here/test-scopes.sh"
 "$here/test-testing.sh"
 "$here/test-workspace-env.sh"
 "$here/test-rails-config.sh"

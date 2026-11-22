@@ -7,13 +7,15 @@ require 'optparse'
 require 'open3'
 require 'rbconfig'
 require_relative 'project'
+require_relative 'config-location'
 
 class GitwoTeamOnboard
   def initialize(argv)
-    @options = { check: false, local: false, json: false, setup: false, yes: false }
+    @options = { check: false, local: false, json: false, setup: false, yes: false, scope: 'local' }
     parser = OptionParser.new do |options|
-      options.banner = 'Usage: gitwo onboard [--check] [--local] [--json] [--setup [--yes]] [--project=PATH]'
-      options.on('--check', 'Validate the committed shared config without changing anything (CI mode)') { @options[:check] = true }
+      options.banner = 'Usage: gitwo onboard [--scope=local|team] [--check] [--local] [--json] [--setup [--yes]] [--project=PATH]'
+      options.on('--scope=SCOPE', 'Configuration scope: local (default) or team') { |value| @options[:scope] = value }
+      options.on('--check', 'Validate the selected config without changing anything (CI mode)') { @options[:check] = true }
       options.on('--local', 'Also check developer toolchain and local credentials') { @options[:local] = true }
       options.on('--json', 'Output machine-readable checks, without secrets') { @options[:json] = true }
       options.on('--setup', 'Opt in to a new schema-only develop workspace') { @options[:setup] = true }
@@ -23,6 +25,7 @@ class GitwoTeamOnboard
     end
     parser.parse!(argv)
     raise ArgumentError, "Unexpected arguments: #{argv.join(" ")}" unless argv.empty?
+    raise ArgumentError, 'Scope must be local or team' unless %w[local team].include?(@options[:scope])
     raise ArgumentError, '--setup cannot be combined with --check or --json' if @options[:setup] && (@options[:check] || @options[:json])
     raise ArgumentError, '--yes is valid only with --setup' if @options[:yes] && !@options[:setup]
     @options[:local] = true unless @options[:check]
@@ -30,20 +33,43 @@ class GitwoTeamOnboard
   end
 
   def run
-    @project = GitwoProject.resolve(nil, explicit: @options[:project])
-    @config_path = File.join(@project, 'gitwo.yml')
+    interactive = $stdin.tty? && !@options[:yes] && !@options[:check] && !@options[:json]
+    default_project = begin
+      GitwoProject.resolve(nil, explicit: @options[:project])
+    rescue ArgumentError
+      File.expand_path(Dir.pwd)
+    end
+    chosen = if interactive && !@options[:project]
+               $stdout.print "Project checkout [#{default_project}]: "
+               answer = $stdin.gets
+               raise ArgumentError, 'No project path supplied' if answer.nil?
+               answer.strip.empty? ? default_project : File.expand_path(answer.strip)
+             else
+               @options[:project] || default_project
+             end
+    @project = GitwoProject.resolve(nil, explicit: chosen)
+    @config_path = if @options[:scope] == 'team'
+                     GitwoConfigLocation.paths(@project)[:team]
+                   else
+                     GitwoConfigLocation.local(@project)
+                   end
     unless File.file?(@config_path) && !File.symlink?(@config_path)
-      record('shared_config', false, 'Missing or unsafe gitwo.yml. A maintainer must run gitwo init, review it and commit it.')
+      next_step = @options[:scope] == 'team' ?
+        'A maintainer must run gitwo init --scope=team, review and commit gitwo.yml.' :
+        'Run gitwo init --scope=local to create a private config outside the repository.'
+      record('scoped_config', false, "Missing or unsafe #{@options[:scope]} configuration. #{next_step}")
       return finish
     end
-    record('shared_config', true, 'Regular gitwo.yml found in the primary checkout')
+    record('scoped_config', true, "Regular #{@options[:scope]} configuration found")
 
-    unless git_success?('cat-file', '-e', 'HEAD:gitwo.yml') &&
-           git_success?('ls-files', '--error-unmatch', '--', 'gitwo.yml')
-      record('committed_config', false, 'gitwo.yml must be committed in HEAD and tracked in the index for repeatable team onboarding')
-      return finish
+    if @options[:scope] == 'team'
+      unless git_success?('cat-file', '-e', 'HEAD:gitwo.yml') &&
+             git_success?('ls-files', '--error-unmatch', '--', 'gitwo.yml')
+        record('committed_config', false, 'Team gitwo.yml must be committed in HEAD and tracked in the index')
+        return finish
+      end
+      record('committed_config', true, 'Team configuration committed in HEAD')
     end
-    record('committed_config', true, 'Team configuration is committed in HEAD')
 
     _output, _errors, status = Open3.capture3(RbConfig.ruby, File.join(__dir__, 'config.rb'), 'validate', @config_path)
     unless status.success?
@@ -61,6 +87,9 @@ class GitwoTeamOnboard
     if @options[:local]
       local_checks
       database_integration
+    end
+    if !@options[:check] && !@options[:json] && !failed?
+      GitwoConfigLocation.use(@project, @options[:scope])
     end
     return finish unless @options[:setup]
 
@@ -83,7 +112,8 @@ class GitwoTeamOnboard
     end
     puts 'Creating a new develop workspace using the committed team configuration (no seeds).'
     # Intentionally delegate all locks, safe DB creation and direnv activation to Gitwo.
-    env = { 'GITWO_PROJECT_ROOT' => @project }
+    env = { 'GITWO_PROJECT_ROOT' => @project,
+            'GITWO_SCOPE' => @options[:scope], 'GITWO_CONFIG_FILE' => @config_path }
     ok = system(env, File.join(__dir__, 'new.sh'), 'develop', '--no-seed', chdir: @project)
     raise ArgumentError, 'Workspace setup did not finish. Existing partial workspaces are preserved; inspect Gitwo logs before retrying.' unless ok
     puts 'Next: review the generated .envrc inside the workspace and run direnv allow .'
@@ -212,18 +242,19 @@ class GitwoTeamOnboard
       puts JSON.pretty_generate({
         status: ready ? 'ok' : 'failed',
         mode: @options[:check] ? (@options[:local] ? 'check-local' : 'check') : 'onboard',
+        scope: @options[:scope],
         project: @project,
         config: @config_path,
         checks: @checks
       })
     else
-      puts "Gitwo team onboarding for #{@project}"
+      puts "Gitwo #{@options[:scope]} onboarding for #{@project}"
       @checks.each do |check|
         marker = { 'ok' => 'OK', 'warning' => 'WARN', 'missing' => 'FAIL' }.fetch(check[:status])
         puts "  [#{marker}] #{check[:id]}: #{check[:message]}"
       end
       if ready && !@options[:check] && !@options[:setup]
-        puts 'Configuration accepted. Next: gitwo new develop --no-seed'
+        puts "Configuration accepted (#{@options[:scope]} scope). Next: gitwo new develop --no-setup"
         puts 'Or explicitly run gitwo onboard --setup after reviewing the database configuration.'
       end
     end

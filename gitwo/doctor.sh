@@ -8,7 +8,7 @@ if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
 fi
 [[ $# -eq 0 || ( $# -eq 1 && "$1" == --deps ) ]] || { echo 'Usage: gitwo doctor [--deps]' >&2; exit 2; }
 required=( _common.sh _runtime.sh _services.sh _lifecycle.sh _prepare.sh _dumps.sh _ui.sh _testing.sh
-  config.rb config.sh help.sh onboard.rb team-onboard.rb project.rb detect.rb detect.sh direnv.sh workspace-env.sh rails-config.rb proxy.sh
+  config.rb config.sh config-location.rb help.sh onboard.rb team-onboard.rb project.rb detect.rb detect.sh direnv.sh workspace-env.sh rails-config.rb proxy.sh
   new.sh checkout.sh setup.sh run.sh down.sh logs.sh remove.sh init.sh redis.sh
   open.sh env.sh dump.sh clean.sh repair.sh services.sh test-services.sh list.sh baseline.sh
   provider.rb provider-env.sh issue.rb jira-env.sh jira-init.sh jira-test.sh
@@ -30,7 +30,7 @@ if git -C "$PWD" rev-parse --show-toplevel >/dev/null 2>&1 || [[ -n "${GITWO_PRO
   if [[ -f "$GITWO_CONFIG_FILE" ]]; then
     ruby "$root/config.rb" validate "$GITWO_CONFIG_FILE"
   else
-    printf '[INFO] No gitwo.yml; run gitwo init\n'
+    printf '[INFO] No active Gitwo configuration; run gitwo init --scope=local (default)\n'
   fi
 else
   printf '[INFO] No project selected; run from a Git checkout\n'
