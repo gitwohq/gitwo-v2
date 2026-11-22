@@ -136,6 +136,34 @@ module GitwoDetection
         end
       end
     end
+    # Stable, machine-readable notices for developers and headless agents.
+    # Discovery never implies that a detected runtime is configured to launch.
+    notices = []
+    unless compose_files.empty?
+      notices << {
+        'code' => 'project_compose_not_configured',
+        'status' => 'detected_not_configured',
+        'files' => compose_files,
+        'message' => 'Project Docker Compose files detected, but Gitwo is not configured to run or attach to them. Gitwo-managed Compose is a separate PostgreSQL/Redis stack.'
+      }
+    end
+    unless devcontainer_files.empty?
+      notices << {
+        'code' => 'devcontainer_not_configured',
+        'status' => 'detected_not_configured',
+        'files' => devcontainer_files,
+        'message' => 'Dev Container configuration detected, but Gitwo is not configured to build, start or enter Dev Containers.'
+      }
+    end
+    unless devcontainer_compose_files.empty?
+      notices << {
+        'code' => 'devcontainer_compose_not_configured',
+        'status' => 'detected_not_configured',
+        'files' => devcontainer_compose_files,
+        'message' => 'Dev Container Compose files detected, but Gitwo is not configured to run them.'
+      }
+    end
+
     seed_file = File.file?(File.join(repo, 'db/seeds.rb'))
     ruby_version = text(File.join(repo, '.ruby-version')).strip
     ruby_version = nil unless ruby_version.match?(/\A\d+\.\d+\.\d+\z/)
@@ -162,6 +190,7 @@ module GitwoDetection
     domain = 'app' unless domain.match?(/\A[a-z][a-z0-9]*(?:-[a-z0-9]+)*\z/) && domain.length <= 63
     {
       'repository' => root,
+      'notices' => notices,
       'detected' => {
         'framework' => rails,
         'database' => observed(postgres ? 'postgresql' : 'unknown', postgres ? 'Gemfile.lock / config/database.yml' : 'no PostgreSQL markers', postgres ? 'high' : 'low'),
