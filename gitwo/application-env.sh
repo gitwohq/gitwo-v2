@@ -4,7 +4,7 @@
 # Sourced by setup.sh after verifying the selected Gitwo worktree.
 #
 # Git already carries tracked files into a worktree. Only copy a small,
-# development/test-specific allowlist of ignored files from the main checkout.
+# development/test-specific allowlist including ignored database.yml of ignored files from the main checkout.
 # Deliberately exclude staging and production secrets.
 
 gitwo_application_env_copy_ignored() {
@@ -13,7 +13,7 @@ gitwo_application_env_copy_ignored() {
   for file in \
     .env .env.local .env.development .env.development.local \
     .env.test .env.test.local .envrc \
-    config/master.key config/credentials/development.key config/credentials/test.key; do
+    config/database.yml config/master.key config/credentials/development.key config/credentials/test.key; do
     original="$source_root/$file"
     target="$target_root/$file"
 
@@ -29,6 +29,21 @@ gitwo_application_env_copy_ignored() {
     fi
     if ! git -C "$source_root" check-ignore -q -- "$file"; then
       gitwo_warn "Not copying untracked, non-ignored application file: $file"
+      continue
+    fi
+    # Reject unsafe parent directories even if the target's ignore rules
+    # diverged; checking Git ignore state must not silently hide a symlink.
+    if [[ "$file" == config/* && -L "$target_root/config" ]]; then
+      gitwo_die 'Refusing application ENV copy through symlinked config directory'
+    fi
+    if [[ "$file" == config/credentials/* && -L "$target_root/config/credentials" ]]; then
+      gitwo_die 'Refusing application ENV copy through symlinked credentials directory'
+    fi
+
+    # The target branch may have changed .gitignore. Never expose an ignored
+    # source secret as an untracked, visible file in another worktree.
+    if ! git -C "$target_root" check-ignore -q -- "$file"; then
+      gitwo_warn "Not copying application file into non-ignored worktree path: $file"
       continue
     fi
     if [[ -L "$target" ]]; then

@@ -54,4 +54,38 @@ ln -s "$work/original" "$work/symlink.yml"
 if ruby "$here/rails-config.rb" plan "$work/symlink.yml" >"$work/output" 2>&1; then
   echo 'Expected symlink refusal' >&2; exit 1
 fi
-printf '[PASS] Rails config preview/apply, private backup, idempotence, unsafe-layout rejection\n'
+# A workspace-local ignored file can be specialized without touching the source.
+cp "$work/original" "$work/workspace.yml"
+ruby "$here/rails-config.rb" workspace "$work/workspace.yml" feature_1_development feature_1_test >/dev/null
+grep -Fq 'ENV.fetch("GITWO_DB_DEV", "feature_1_development")' "$work/workspace.yml"
+grep -Fq 'ENV.fetch("GITWO_DB_TEST", "feature_1_test")' "$work/workspace.yml"
+ruby "$here/rails-config.rb" workspace "$work/workspace.yml" feature_1_development feature_1_test >/dev/null
+cp "$work/workspace.yml" "$work/stable"
+cmp "$work/stable" "$work/workspace.yml"
+if ruby "$here/rails-config.rb" workspace "$work/workspace.yml" shared_database shared_database > "$work/error" 2>&1; then
+  echo 'Workspace mode allowed overlapping DBs' >&2; exit 1
+fi
+cmp "$work/stable" "$work/workspace.yml"
+if ruby "$here/rails-config.rb" workspace "$work/reject-original" unsafe/dev safe_test > "$work/error" 2>&1; then
+  echo 'Workspace mode allowed unsafe database identifier' >&2; exit 1
+fi
+# Missing test config in a legacy ignored Rails YAML should be derived
+# from development, while leaving the original developer file untouched.
+cat > "$work/development-only.yml" <<'YAML'
+default: &default
+  adapter: postgresql
+  host: localhost
+development:
+  <<: *default
+  database: original_development
+production:
+  <<: *default
+  database: production_database
+YAML
+cp "$work/development-only.yml" "$work/development-only-original.yml"
+ruby "$here/rails-config.rb" workspace "$work/development-only.yml" isolated_development isolated_test > "$work/development-only.log"
+grep -Fq 'ENV.fetch("GITWO_DB_DEV", "isolated_development")' "$work/development-only.yml"
+grep -Fq 'ENV.fetch("GITWO_DB_TEST", "isolated_test")' "$work/development-only.yml"
+grep -Fq 'database: production_database' "$work/development-only.yml"
+[[ "$(grep -c "^test:$" "$work/development-only.yml")" == 1 ]]
+printf '[PASS] Rails config preview/apply, private workspace isolation, idempotence, unsafe-layout rejection\n'

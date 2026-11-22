@@ -3,7 +3,24 @@
 set -euo pipefail
 here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/gitwo-rails-standard.XXXXXXXX")"
-trap 'rm -rf -- "$tmp"' EXIT
+cleanup() {
+  local result="$?"
+  if [[ "$result" -ne 0 ]]; then
+    printf '[FAIL] Rails adapter test failed (exit %s)\n' "$result" >&2
+    for log in no-custom missing generated existing symlink; do
+      if [[ -f "$tmp/$log.log" ]]; then
+        printf '%s\n' "--- $log.log ---" >&2
+        cat "$tmp/$log.log" >&2
+      fi
+    done
+    if [[ -f "$tmp/config/database.yml" && ! -L "$tmp/config/database.yml" ]]; then
+      printf '%s\n' '--- generated database.yml ---' >&2
+      cat "$tmp/config/database.yml" >&2
+    fi
+  fi
+  rm -rf -- "$tmp"
+}
+trap cleanup EXIT
 cd "$tmp"
 mkdir -p config lib/tasks
 GITWO_DIR="$here"
@@ -11,6 +28,7 @@ GITWO_DB_DEV=fixture_feature_1_development
 GITWO_DB_TEST=fixture_feature_1_test
 gitwo_log() { printf '[INFO] %s\n' "$*" >&2; }
 gitwo_warn() { printf '[WARN] %s\n' "$*" >&2; }
+gitwo_ok() { printf '[OK] %s\n' "$*" >&2; }
 gitwo_die() { printf '[ERROR] %s\n' "$*" >&2; exit 1; }
 source "$here/adapters/rails-standard.sh"
 
@@ -33,16 +51,47 @@ fi
 grep -Fq 'Missing config/database.yml' "$tmp/missing.log"
 grep -Fq "$GITWO_DB_DEV" "$tmp/missing.log"
 
-cat > config/database.yml <<YAML
+# An ignored, absent config is generated safely for the workspace.
+git init -q -b main "$tmp"
+printf 'config/database.yml\n' > "$tmp/.gitignore"
+GITWO_SOURCE="$tmp"
+gitwo_adapter_prepare_database_config > "$tmp/generated.log" 2>&1
+grep -Fq 'Created isolated, ignored workspace database.yml' "$tmp/generated.log"
+grep -Fq "$GITWO_DB_DEV" config/database.yml
+grep -Fq "$GITWO_DB_TEST" config/database.yml
+git -C "$tmp" check-ignore -q config/database.yml
+
+# A conventional ignored source config is adapted to this workspace's names.
+cat > config/database.yml <<'YAML'
 development:
   adapter: postgresql
-  database: $GITWO_DB_DEV
+  database: shared_app_development
 test:
   adapter: postgresql
-  database: $GITWO_DB_TEST
+  database: shared_app_test
 YAML
 gitwo_adapter_prepare_database_config > "$tmp/existing.log" 2>&1
 grep -Fq 'Custom Rake tasks read config_for(:database)' "$tmp/existing.log"
+grep -Fq 'ENV.fetch("GITWO_DB_DEV", "fixture_feature_1_development")' config/database.yml
+grep -Fq 'ENV.fetch("GITWO_DB_TEST", "fixture_feature_1_test")' config/database.yml
+
+# Tracked database.yml must never be mutated, even with an ignored
+# source convention. This fixture intentionally forces the file into Git.
+git -C "$tmp" config user.email fixture@example.invalid
+git -C "$tmp" config user.name Fixture
+git -C "$tmp" add -f config/database.yml
+git -C "$tmp" commit -qm 'Track database configuration on this branch'
+cat > config/database.yml <<'YAML'
+development:
+  adapter: postgresql
+  database: tracked_development
+test:
+  adapter: postgresql
+  database: tracked_test
+YAML
+cp config/database.yml "$tmp/tracked-original"
+gitwo_adapter_prepare_database_config > "$tmp/tracked.log" 2>&1
+cmp config/database.yml "$tmp/tracked-original"
 
 rm config/database.yml
 ln -s "$tmp/nonexistent" config/database.yml

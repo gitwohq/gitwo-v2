@@ -10,17 +10,45 @@ gitwo_adapter_custom_database_rake_tasks() {
     grep -REq 'config_for[[:space:]]*\([[:space:]]*:database[[:space:]]*\)' lib/tasks
 }
 gitwo_adapter_prepare_database_config() {
-  # DATABASE_URL selects ActiveRecord's connection, but does not provide
-  # config_for(:database) to application-defined Rake tasks evaluated at load time.
-  # Fail before creating any DB rather than inventing or copying a config which
-  # could point custom pg_dump/dropdb tasks at the primary checkout's database.
+  # Rails uses DATABASE_URL for ActiveRecord, but custom Rake tasks can read
+  # config_for(:database) independently. Only adapt an IGNORED workspace file.
+  # A tracked database.yml is never modified by workspace provisioning.
   [[ ! -L config/database.yml ]] || gitwo_die 'Refusing symlinked config/database.yml'
+  if [[ -n "${GITWO_SOURCE:-}" ]] &&
+     ! git -C "$GITWO_SOURCE" ls-files --error-unmatch -- config/database.yml >/dev/null 2>&1 &&
+     git -C "$GITWO_SOURCE" check-ignore -q -- config/database.yml &&
+     ! git -C "$PWD" ls-files --error-unmatch -- config/database.yml >/dev/null 2>&1 &&
+     git -C "$PWD" check-ignore -q -- config/database.yml; then
+    if [[ ! -e config/database.yml ]]; then
+      [[ -d config && ! -L config ]] || gitwo_die 'Unsafe workspace config directory'
+      (umask 077; set -C; cat > config/database.yml <<YAML
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  host: <%= ENV.fetch("PGHOST", "localhost") %>
+  port: <%= ENV.fetch("PGPORT", 5432) %>
+  username: <%= ENV.fetch("PGUSER", ENV.fetch("USER", "postgres")) %>
+development:
+  <<: *default
+  database: <%= ENV.fetch("GITWO_DB_DEV", "$GITWO_DB_DEV") %>
+test:
+  <<: *default
+  database: <%= ENV.fetch("GITWO_DB_TEST", "$GITWO_DB_TEST") %>
+YAML
+      ) || gitwo_die 'Could not create ignored workspace database.yml'
+      gitwo_ok 'Created isolated, ignored workspace database.yml'
+    else
+      [[ -f config/database.yml ]] || gitwo_die 'Unsafe workspace database.yml'
+    fi
+    ruby "$GITWO_DIR/rails-config.rb" workspace config/database.yml "$GITWO_DB_DEV" "$GITWO_DB_TEST" ||
+      gitwo_die 'Could not safely adapt ignored database.yml; inspect the existing configuration'
+  fi
   if gitwo_adapter_custom_database_rake_tasks; then
     [[ -f config/database.yml ]] ||
-      gitwo_die "Missing config/database.yml: a custom Rake task calls config_for(:database). Create a workspace-local, ignored database.yml pointing development/test to $GITWO_DB_DEV and $GITWO_DB_TEST. DATABASE_URL alone is not sufficient."
-    gitwo_warn 'Custom Rake tasks read config_for(:database) independently of DATABASE_URL. Verify their database target is workspace-isolated before invoking dump/drop tasks.'
+      gitwo_die "Missing config/database.yml: custom Rake task calls config_for(:database). Provide isolated development/test config for $GITWO_DB_DEV and $GITWO_DB_TEST before setup."
+    gitwo_warn 'Custom Rake tasks read config_for(:database) independently of DATABASE_URL. Both database targets are verified before bootstrapping.'
   fi
-  gitwo_log 'rails-standard uses DATABASE_URL and does not edit config/database.yml'
+  gitwo_log 'rails-standard uses DATABASE_URL; tracked config/database.yml remains unchanged'
 }
 gitwo_adapter_install_frontend() {
   if [[ -f package.json && -f yarn.lock ]]; then
@@ -43,6 +71,33 @@ gitwo_adapter_assert_database_target() {
   fi
   GITWO_EXPECTED_DB="$GITWO_DB_DEV" gitwo_rails development bundle exec rails runner "${development_check}${rake_check}" >/dev/null || gitwo_die 'rails-standard development DB target verification failed'
   GITWO_EXPECTED_DB="$GITWO_DB_TEST" gitwo_rails test bundle exec rails runner "${test_check}${rake_check}" >/dev/null || gitwo_die 'rails-standard test DB target verification failed'
+}
+
+
+# This is the final readiness gate, after schema, test preparation and seeds.
+# Verify actual PostgreSQL connections rather than merely checking Rails YAML.
+gitwo_adapter_verify_ready_databases() {
+  [[ "$GITWO_DB_DEV" != "$GITWO_DB_TEST" ]] ||
+    gitwo_die 'Development and test database names overlap'
+  [[ "$GITWO_DB_DEV" == "$(gitwo_expected_db_name "$GITWO_PATH" development)" ]] ||
+    gitwo_die 'Unexpected development database identity'
+  [[ "$GITWO_DB_TEST" == "$(gitwo_expected_db_name "$GITWO_PATH" test)" ]] ||
+    gitwo_die 'Unexpected test database identity'
+
+  local env_name expected actual rails_check
+  for env_name in development test; do
+    if [[ "$env_name" == development ]]; then expected="$GITWO_DB_DEV"; else expected="$GITWO_DB_TEST"; fi
+    actual="$(gitwo_pg psql --no-psqlrc -d "$expected" -Atqc 'SELECT current_database()' 2>/dev/null)" ||
+      gitwo_die "Isolated $env_name database is missing or inaccessible: $expected"
+    [[ "$actual" == "$expected" ]] ||
+      gitwo_die "PostgreSQL $env_name target mismatch: expected $expected; got $actual"
+
+    rails_check='db = ActiveRecord::Base.connection; actual = db.select_value("SELECT current_database()"); abort "Rails connected to unexpected database: #{actual}" unless actual == ENV.fetch("GITWO_EXPECTED_DB")'
+    GITWO_EXPECTED_DB="$expected" gitwo_rails "$env_name" bundle exec rails runner "$rails_check" >/dev/null ||
+      gitwo_die "Rails $env_name runtime did not connect to isolated database $expected"
+  done
+  gitwo_adapter_assert_database_target
+  gitwo_ok "Verified isolated Rails development and test databases: $GITWO_DB_DEV / $GITWO_DB_TEST"
 }
 
 gitwo_adapter_build_assets() {

@@ -48,6 +48,40 @@ and your existing credential mechanism.
 Gitwo **never edits tracked database.yml during workspace creation, setup,
 verification, or direnv activation**. Only `integrate --apply` can do so.
 
+### Ignored `config/database.yml` (developer-local projects)
+
+When `config/database.yml` is explicitly ignored by Git in the primary checkout,
+Gitwo can prepare an isolated copy in each new workspace without modifying the
+source checkout or Git history. If the ignored file exists, it is copied using
+the existing safe local-file rules; Gitwo updates only its conventional
+`development` and `test` `database:` entries, with the isolated workspace
+database names as fallbacks. A legacy development-only file can have a `test`
+block derived from development. If an ignored file is absent, a small PostgreSQL
+development/test config is generated **only inside the workspace**.
+
+Custom ERB, nested multi-DB layouts, explicit `url:` entries and symlinked
+configurations are refused rather than guessed at. Untracked but **not ignored**
+configurations are preserved without rewriting. A **tracked** `database.yml`
+is never rewritten by automatic workspace setup.
+
+Inspect the detection result before adopting a project:
+
+```sh
+gitwo detect --json
+```
+
+Look at `detected.database_config.value`:
+`tracked`, `ignored`, `ignored_missing`, `untracked`, `missing`
+or `symlink`. Developers do not need to edit `database.yml` for each feature
+when it is ignored and has a conventional Rails layout.
+
+**Readiness contract:** successful full setup requires creation and real
+connectivity checks of **both** isolated development and test databases.
+Gitwo checks each PostgreSQL database and each live Rails ActiveRecord
+connection, including custom `config_for(:database)` targets when detected.
+The `bootstrap-status=ready` marker is written only after verification.
+`gitwo new --no-setup` creates a worktree, **not** a ready Rails environment.
+
 ## 2. Create and initialize a workspace
 
 ```sh
@@ -144,7 +178,7 @@ selected Ruby's `bin/` directory to `PATH` without altering tracked files.
 
 ## 5. Safety properties
 
-- No modifications to Rails binstubs, `config/database.yml`, or committed files.
+- No changes to tracked Rails binstubs, tracked `config/database.yml`, or committed files. Ignored workspace-local `database.yml` may be created or specialized.
 - `.envrc` is generated only after both DB targets pass real Rails checks.
 - `.envrc` is ignored locally through Git's `info/exclude`, without changing
   repository `.gitignore`.
@@ -155,6 +189,34 @@ selected Ruby's `bin/` directory to `PATH` without altering tracked files.
   commands in another workspace, but is not needed for normal daily work.
 - If direnv is not installed, direct commands are **not** claimed isolated;
   install/approve direnv before running destructive Rails DB tasks.
+
+## Existing developer Compose files and Dev Containers
+
+`gitwo detect --json` includes a stable `notices` array when project
+Compose or Dev Container configs are detected but **not configured to run**.
+Each notice carries `code`, `status: detected_not_configured`, `files` and
+`message`, so an agent can act on it without scraping terminal output.
+`gitwo detect` and `gitwo init` show an explicit `[NOTICE]` for each detected
+unsupported runtime. If a developer selects Gitwo-managed Compose during
+`init`, a second notice clarifies that it provisions only Gitwo-owned
+PostgreSQL/Redis, not the project's own Compose application or Dev Container.
+
+`gitwo detect --json` inventories common developer Compose files such as
+`compose.local.yml`, `compose.dev.yml`, `docker-compose.development.yaml`,
+and `docker-compose.override.yml`, plus Dev Container definitions in
+`.devcontainer/devcontainer.json`, `.devcontainer/<profile>/devcontainer.json`,
+and `.devcontainer.json`. It also recognizes conventional Compose filenames
+inside `.devcontainer/`. Detection reads **filenames only**, does not run Docker
+or Dev Container lifecycle hooks, and ignores symlinked entries.
+
+The detected application Compose files are NOT the same as Gitwo's managed
+`services.backend: compose`. Managed Compose provisions an isolated PostgreSQL
+and Redis stack outside the application repository; it does **not** run or attach
+to the developer's custom Compose services. Dev Container startup, workspace
+mount mapping, in-container CLI execution, and reuse of an existing project's
+Compose network are **not implemented** in this release. They require an
+explicit adapter and lifecycle/ownership safeguards; detection is the first,
+read-only compatibility step.
 
 ## Service backend: native or managed Compose
 

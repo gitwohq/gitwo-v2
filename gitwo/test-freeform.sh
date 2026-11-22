@@ -90,6 +90,12 @@ end
 RUBY
 [[ -d "$tmp/.gitwo-workspaces/project/improve-dashboard-1" ]]
 
+gitwo new feature 'Not yet provisioned' --no-setup > "$tmp/created.out" 2> "$tmp/created.err"
+grep -Fq '[CREATED] Created (not provisioned):' "$tmp/created.err"
+if grep -Fq '[READY]' "$tmp/created.err"; then
+  echo 'Unprovisioned workspace incorrectly displayed a READY badge' >&2; exit 1
+fi
+
 fake="$tmp/.gitwo-workspaces/project/foreign-1"
 mkdir -p "$fake"
 if gitwo checkout foreign-1 > /dev/null 2>&1; then
