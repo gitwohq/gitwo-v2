@@ -6,8 +6,17 @@ gitwo_adapter_validate_repository() {
   [[ -f db/schema.rb || -f db/structure.sql ]] || gitwo_die 'rails-standard requires a committed Rails schema snapshot'
 }
 gitwo_adapter_prepare_database_config() {
-  # DATABASE_URL overrides the standard Rails database config; leave its files as-is.
+  # DATABASE_URL selects ActiveRecord's connection, but does not provide
+  # config_for(:database) to application-defined Rake tasks evaluated at load time.
+  # Fail before creating any DB rather than inventing or copying a config which
+  # could point custom pg_dump/dropdb tasks at the primary checkout's database.
   [[ ! -L config/database.yml ]] || gitwo_die 'Refusing symlinked config/database.yml'
+  if [[ -d lib/tasks ]] &&
+    grep -REq 'config_for[[:space:]]*\([[:space:]]*:database[[:space:]]*\)' lib/tasks; then
+    [[ -f config/database.yml ]] ||
+      gitwo_die "Missing config/database.yml: a custom Rake task calls config_for(:database). Create a workspace-local, ignored database.yml pointing development/test to $GITWO_DB_DEV and $GITWO_DB_TEST. DATABASE_URL alone is not sufficient."
+    gitwo_warn 'Custom Rake tasks read config_for(:database) independently of DATABASE_URL. Verify their database target is workspace-isolated before invoking dump/drop tasks.'
+  fi
   gitwo_log 'rails-standard uses DATABASE_URL and does not edit config/database.yml'
 }
 gitwo_adapter_install_frontend() {
