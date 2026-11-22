@@ -62,7 +62,7 @@ printf '  Puma:      %s\n  Redis dev: %s\n  Redis test:%s\n' "$puma_status" "$re
 [[ -z "$sidekiq_pids" ]] || printf '  Sidekiq:   running (PID %s)\n' "$sidekiq_pids"
 case "$puma_status" in stopped*) ;; *) gitwo_die 'Puma may still be running. Run gitwo down and retry.' ;; esac
 for state in "$redis_dev" "$redis_test"; do
-  case "$state" in stopped|'not allocated') ;; *) gitwo_die 'Redis may still be running or cannot be verified. Run gitwo down and retry.' ;; esac
+  case "$state" in stopped|'stopped (Compose)'|'not allocated') ;; *) gitwo_die 'Redis may still be running or cannot be verified. Run gitwo down and retry.' ;; esac
 done
 [[ -z "$sidekiq_pids" ]] || gitwo_die 'Sidekiq is still running. Run gitwo down and retry.'
 
