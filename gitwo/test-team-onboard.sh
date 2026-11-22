@@ -95,7 +95,7 @@ mv "$tmp/safe-gitwo.yml" "$project/gitwo.yml"
 
 # Strict YAML parser must reject executable object tags without evaluation.
 cp "$project/gitwo.yml" "$tmp/original.yml"
-printf '--- !ruby/object:Kernel {}\n' > "$project/gitwo.yml"
+printf '%s\n' '--- !ruby/object:Kernel {}' > "$project/gitwo.yml"
 if ruby "$here/team-onboard.rb" --project="$project" --check > "$tmp/malicious.log" 2>&1; then
   echo 'Unsafe YAML was accepted' >&2; exit 1
 fi
