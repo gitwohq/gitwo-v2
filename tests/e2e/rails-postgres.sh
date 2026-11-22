@@ -211,7 +211,8 @@ if "$cli" run develop-1 test test/models/gitwo_fixture_test.rb > "$work/test-aut
 fi
 grep -q 'Both Minitest and RSpec detected' "$work/test-auto.err"
 "$cli" status develop-1 --json > "$work/status-1.json"
-ruby -rjson -e 'x=JSON.parse(File.read(ARGV.fetch(0))); abort x.inspect unless x["data_source"] == "seeded"' "$work/status-1.json"
+ruby -rjson -e 'x=JSON.parse(File.read(ARGV.fetch(0))); abort x.inspect unless x["data_source"] == "seeded" && x["test_db_check"] == "connected"' "$work/status-1.json"
+[[ "$(fixture_psql develop-1 -d gitwo_fixture_develop_1_test -Atqc 'SELECT current_database()')" == gitwo_fixture_develop_1_test ]]
 [[ "$(fixture_psql develop-1 -d gitwo_fixture_develop_1_development -Atqc "SELECT COUNT(*) FROM widgets WHERE name='gitwo-e2e-seeded'")" == 1 ]]
 
 archive="$($cli dump create develop-1 --name=e2e-snapshot)"
@@ -422,4 +423,34 @@ if [[ "${GITWO_SERVICES_BACKEND:-native}" == native ]]; then
 fi
 [[ -z "$(git -C "$app" status --porcelain --untracked-files=all)" ]]
 
-printf '[PASS] Rails+PostgreSQL+Redis E2E: named unticketed full setup, worktrees, native tests, direnv, seeds, dump/restore, Puma, Compose\n'
+# Recreate the common Bezala layout: database.yml is ignored and local to
+# each developer, not committed. Do not modify tracked application config.
+printf '\n/config/database.yml\n' >> "$app/.gitignore"
+git -C "$app" rm --cached -q config/database.yml
+git -C "$app" add .gitignore
+git -C "$app" commit -qm 'Use ignored local database configuration'
+git -C "$app" check-ignore -q config/database.yml
+cp "$app/config/database.yml" "$work/ignored-source-database.yml"
+ignored_workspace="$("$cli" new feature "Ignored database fixture" 2>"$work/ignored-db-setup.log")" || {
+  tail -100 "$work/ignored-db-setup.log" >&2; exit 1
+}
+grep -Fq 'ENV.fetch("GITWO_DB_DEV", "gitwo_fixture_ignored_database_fixture_1_development")' "$ignored_workspace/config/database.yml"
+grep -Fq 'ENV.fetch("GITWO_DB_TEST", "gitwo_fixture_ignored_database_fixture_1_test")' "$ignored_workspace/config/database.yml"
+git -C "$ignored_workspace" check-ignore -q config/database.yml
+cmp "$app/config/database.yml" "$work/ignored-source-database.yml"
+"$cli" status ignored-database-fixture-1 --json > "$work/ignored-status.json"
+ruby -rjson -e 'x=JSON.parse(File.read(ARGV.fetch(0))); abort x.inspect unless x["test_db_check"]=="connected" && x["bootstrap"]=="ready"' "$work/ignored-status.json"
+
+# When the ignored source database.yml is absent, create one only inside
+# the new isolated worktree. Never create it in the primary checkout.
+rm "$app/config/database.yml"
+generated_workspace="$("$cli" new feature "Generated database fixture" 2>"$work/generated-db-setup.log")" || {
+  tail -100 "$work/generated-db-setup.log" >&2; exit 1
+}
+[[ ! -e "$app/config/database.yml" ]]
+grep -Fq 'Created isolated, ignored workspace database.yml' "$work/generated-db-setup.log"
+grep -Fq 'ENV.fetch("GITWO_DB_TEST", "gitwo_fixture_generated_database_fixture_1_test")' "$generated_workspace/config/database.yml"
+"$cli" status generated-database-fixture-1 --json > "$work/generated-status.json"
+ruby -rjson -e 'x=JSON.parse(File.read(ARGV.fetch(0))); abort x.inspect unless x["test_db_check"]=="connected" && x["bootstrap"]=="ready"' "$work/generated-status.json"
+
+printf '[PASS] Rails+PostgreSQL+Redis E2E: verified dev/test DBs, ignored config generation, worktrees, native tests, direnv, seeds, dumps, Puma, Compose\n'
