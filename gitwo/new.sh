@@ -261,10 +261,8 @@ if [[ "$resume" == no ]]; then
     gitwo_die "Local branch already exists: $branch (refusing reset)"
   fi
   gitwo_ui_section '01  Git / source'
-  if [[ "$freeform" == yes ]]; then
-    gitwo_log "Local-only feature: create from $base without fetch or issue API"
-    git -C "$GITWO_SOURCE" show-ref --verify --quiet "refs/heads/$base" ||
-      gitwo_die "Missing local branch: $base"
+  if [[ "$base_kind" == local ]]; then
+    gitwo_log "Local feature base: $base (no remote fetch required)"
   else
     gitwo_ui_run 'Fetch origin (keep local develop unchanged)' git -C "$GITWO_SOURCE" fetch --prune origin
     git -C "$GITWO_SOURCE" show-ref --verify --quiet "refs/remotes/$base" || gitwo_die "Missing remote ref $base"
