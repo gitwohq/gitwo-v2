@@ -9,6 +9,7 @@ require 'tempfile'
 require 'io/console'
 require_relative 'detect'
 require_relative 'project'
+require_relative 'config-location'
 
 class GitwoOnboard
   WORKFLOWS = %w[gitflow github-flow trunk-based gitlab-flow custom].freeze
@@ -19,12 +20,13 @@ class GitwoOnboard
 
   def initialize(action, argv)
     @action = action
-    @options = { dry_run: false, yes: false, json: false }
+    @options = { dry_run: false, yes: false, json: false, scope: 'local' }
     parser = OptionParser.new do |opt|
-      opt.banner = "Usage: gitwo #{action} [--project=PATH] [--config=PATH] [--json|--yes|--dry-run]"
+      opt.banner = "Usage: gitwo #{action} [--scope=local|team] [--project=PATH] [--output=PATH] [--yes|--dry-run|--json]"
       opt.on('--project=PATH', 'Select permanent Git checkout') { |v| @options[:project] = v }
+      opt.on('--scope=SCOPE', 'Configuration scope: local (default) or team') { |v| @options[:scope] = v }
       opt.on('--config=PATH', 'Use a complete YAML configuration file') { |v| @options[:config] = v }
-      opt.on('--output=PATH', 'Where to write generated config (default: Gitwo config.yml)') { |v| @options[:output] = v }
+      opt.on('--output=PATH', 'Override config path (local mode only; stored outside the repo)') { |v| @options[:output] = v }
       opt.on('--yes', 'Non-interactive defaults and no credential prompts') { @options[:yes] = true }
       opt.on('--dry-run', 'Preview without writing any files') { @options[:dry_run] = true }
       opt.on('--json', 'Machine-readable detection or proposal') { @options[:json] = true }
@@ -32,55 +34,88 @@ class GitwoOnboard
     end
     parser.parse!(argv)
     raise ArgumentError, "Unexpected arguments: #{argv.join(' ')}" unless argv.empty?
+    raise ArgumentError, 'Scope must be local or team' unless %w[local team].include?(@options[:scope])
     raise ArgumentError, '--output applies only to init' if action == 'detect' && @options[:output]
+    raise ArgumentError, '--scope applies only to init' if action == 'detect' && @options[:scope] != 'local'
     @script_dir = File.realpath(__dir__)
     @parent = File.realpath(File.join(@script_dir, '..'))
   end
 
   def run
-    explicit = @options[:config] && File.expand_path(@options[:config])
-    project = GitwoProject.resolve(@script_dir, explicit: @options[:project], config_path: explicit)
-    repo_yaml = File.join(project, 'gitwo.yml')
-    existing = explicit || (File.expand_path(ENV['GITWO_CONFIG_FILE']) if ENV['GITWO_CONFIG_FILE'])
-    existing ||= repo_yaml if File.exist?(repo_yaml) || File.symlink?(repo_yaml)
-    detection = GitwoDetection.detect(project)
     if @action == 'detect'
-      show_detection(detection)
+      project = GitwoProject.resolve(@script_dir, explicit: @options[:project],
+                                    config_path: @options[:config])
+      show_detection(GitwoDetection.detect(project))
       return
     end
+
+    interactive = !$stdin.closed? && $stdin.tty? && !@options[:yes] &&
+                  !@options[:dry_run] && !@options[:json]
+    puts "Gitwo / init (scope: #{@options[:scope]})" if interactive
+    suggested_project = begin
+      GitwoProject.resolve(@script_dir, explicit: @options[:project])
+    rescue ArgumentError
+      File.expand_path(Dir.pwd)
+    end
+    selected_project = if interactive && !@options[:project]
+                         ask_path('Project checkout', suggested_project)
+                       else
+                         @options[:project] || suggested_project
+                       end
+    project = GitwoProject.resolve(@script_dir, explicit: selected_project)
+    locations = GitwoConfigLocation.paths(project)
+    scope = @options[:scope]
+    default_output = scope == 'team' ? locations[:team] : GitwoConfigLocation.local(project)
+    raise ArgumentError, '--output is not supported with --scope=team (uses repo/gitwo.yml)' if
+      scope == 'team' && @options[:output] && File.expand_path(@options[:output]) != locations[:team]
+    output = @options[:output] ? File.expand_path(@options[:output]) : default_output
+    output = ask_path('Configuration file', output) if interactive && !@options[:output]
+    if scope == 'team'
+      raise ArgumentError, 'Team config must be the project-root gitwo.yml' unless output == locations[:team]
+    else
+      output = GitwoConfigLocation.validate_local_target(project, output)
+    end
+
+    explicit = @options[:config] && File.expand_path(@options[:config])
+    existing = explicit || (File.exist?(output) || File.symlink?(output) ? output : nil)
+    detection = GitwoDetection.detect(project)
+
     if existing
       validated = load_and_validate(existing)
-      # project.source is a shared logical label; each developer may choose a
-      # different clone directory without rewriting the team configuration.
       if @options[:dry_run] || @options[:json]
-        puts @options[:json] ? JSON.pretty_generate({ status: 'existing', source: existing, proposed_config: validated, detection: detection }) : "Existing configuration: #{existing}\nNo changes required."
+        if @options[:json]
+          puts JSON.pretty_generate(status: 'existing', scope: scope, project: project,
+                                    source: existing, config_path: output,
+                                    proposed_config: validated, detection: detection)
+        else
+          puts "Scope: #{scope}\nProject: #{project}\nConfig: #{output}"
+          puts "Existing configuration: #{existing}\nNo changes required."
+        end
         return
       end
-      output = File.expand_path(@options.fetch(:output, repo_yaml))
-      if File.realpath(existing) == output
+      if File.expand_path(existing) != output
+        raise ArgumentError, "Target config already exists: #{output}" if
+          File.exist?(output) || File.symlink?(output)
+        write_config(output, File.read(existing), scope)
+        puts "[OK] Configuration copied to #{output}"
+      else
         puts "[OK] Existing configuration validated: #{existing}"
-        puts "[INFO] Detected framework: #{detection.dig('detected', 'framework', 'value')}; workflow: #{detection.dig('inferred', 'workflow', 'value')}"
-        return
       end
-      if (File.exist?(output) || File.symlink?(output)) && !@options[:output]
-        puts "[INFO] An active local config already exists: #{output}"
-        puts "[INFO] Kept it unchanged. To use the selected file: export GITWO_CONFIG_FILE=#{existing}"
-        return
-      end
-      safe_write(output, File.read(existing))
-      puts "[OK] Existing configuration copied to #{output}"
+      activate_location(project, scope, output)
+      puts "[INFO] Active scope: #{scope}; project: #{project}"
       return
     end
 
     suggested = detection.fetch('suggested')
-    if @options[:dry_run]
-      show_proposal(suggested, detection)
+    if @options[:dry_run] || @options[:json]
+      show_proposal(suggested, detection, project, output, scope)
       return
     end
-    unless @options[:yes] || $stdin.tty?
-      raise ArgumentError, 'Interactive input needs a TTY. Use --yes or supply --config=PATH.'
+
+    unless @options[:yes] || interactive
+      raise ArgumentError, 'Interactive input needs a TTY. Use --yes or supply --project=PATH.'
     end
-    unless @options[:yes]
+    if interactive
       display_findings(detection)
       suggested['git']['workflow'] = choose('Git workflow', WORKFLOWS, suggested.dig('git', 'workflow'))
       suggested['issues']['provider'] = choose('Issue tracker', TRACKERS, 'none')
@@ -98,33 +133,54 @@ class GitwoOnboard
         suggested['issues']['url'] = ask('GitHub repository URL (optional, detected from origin)', '')
         suggested['issues'].delete('url') if suggested['issues']['url'].empty?
       end
-      puts '\nReview proposed configuration:'
-      puts YAML.dump(suggested)
+      puts "\nScope: #{scope}\nProject: #{project}\nConfiguration: #{output}"
+      puts "Changes in Rails repository: #{scope == 'local' ? 'none' : 'new untracked gitwo.yml'}"
+      puts "\nReview proposed configuration:\n#{YAML.dump(suggested)}"
       raise ArgumentError, 'Cancelled without writing' unless ask('Save configuration? [y/N]', 'n').downcase == 'y'
     else
-      puts '[INFO] Non-interactive mode: no network calls, no credentials, no Rails side effects' unless @options[:json]
+      puts "[INFO] Non-interactive init: scope=#{scope}, project=#{project}, output=#{output}"
       unless detection.dig('detected', 'framework', 'value') == 'rails'
-        raise ArgumentError, 'Cannot safely initialize a non-Rails repository with --yes (Rails-only adapters currently)'
+        raise ArgumentError, 'Cannot safely initialize a non-Rails repository with --yes'
       end
     end
 
-    # No destructive initialization if Git refs are missing.
     validate_refs(project, suggested)
-    contents = YAML.dump(suggested)
-    output = File.expand_path(@options.fetch(:output, repo_yaml))
-    safe_write(output, contents)
+    write_config(output, YAML.dump(suggested), scope)
+    activate_location(project, scope, output)
     puts "[OK] Configuration saved: #{output}"
-    puts "[INFO] Project: #{project}"
-    if output != repo_yaml
-      puts "[INFO] Activate with: export GITWO_CONFIG_FILE=#{output}"
+    puts "[INFO] Active scope: #{scope}; project: #{project}"
+    puts '[INFO] No Git commits, pushes or Rails database changes were performed.'
+    if scope == 'team'
+      puts '[INFO] Review gitwo.yml before choosing to commit it for the team.'
     end
-    if suggested.dig('issues', 'provider') == 'jira' && !@options[:yes]
+    if suggested.dig('issues', 'provider') == 'jira' && interactive
       credential_setup(suggested.dig('issues', 'url'), suggested.dig('issues', 'credential') || 'default')
     elsif suggested.dig('issues', 'provider') != 'jira'
-      credential_setup_linear(suggested.dig('issues', 'credential') || 'default') if suggested.dig('issues', 'provider') == 'linear' && !@options[:yes]
+      credential_setup_linear(suggested.dig('issues', 'credential') || 'default') if
+        suggested.dig('issues', 'provider') == 'linear' && interactive
       puts '[INFO] GitHub uses gh auth login for authentication.' if suggested.dig('issues', 'provider') == 'github'
     end
     puts '[INFO] Run gitwo doctor and gitwo config validate before creating workspaces.'
+  end
+
+  def ask_path(label, default)
+    color = $stdout.tty? && !ENV.key?('NO_COLOR') && ENV.fetch('TERM', '') != 'dumb'
+    hint = color ? "\e[2m#{default}\e[0m" : default
+    print "#{label} [#{hint}]: "
+    entered = $stdin.gets
+    raise ArgumentError, 'Input ended before confirmation' if entered.nil?
+    entered = entered.strip
+    entered.empty? ? default : File.expand_path(entered)
+  end
+
+  def activate_location(project, scope, output)
+    GitwoConfigLocation.register(project, output) if scope == 'local'
+    GitwoConfigLocation.use(project, scope)
+  end
+
+  def write_config(path, contents, scope)
+    GitwoConfigLocation.prepare_directory(File.dirname(path)) if scope == 'local'
+    safe_write(path, contents)
   end
 
   private
@@ -152,10 +208,12 @@ class GitwoOnboard
     detection['warnings'].each { |warning| warn "  [WARN] #{warning}" }
   end
 
-  def show_proposal(suggested, detection)
+  def show_proposal(suggested, detection, project, output, scope)
     if @options[:json]
-      puts JSON.pretty_generate({ proposed_config: suggested, detection: detection, would_write: @options.fetch(:output, repo_yaml) })
+      puts JSON.pretty_generate({ scope: scope, project: project, config_path: output,
+                                  proposed_config: suggested, detection: detection, would_write: output })
     else
+      puts "Scope: #{scope}\nProject: #{project}\nConfiguration: #{output}"
       display_findings(detection)
       puts "\nProposed config (not written):\n#{YAML.dump(suggested)}"
     end
