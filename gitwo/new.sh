@@ -318,6 +318,9 @@ if [[ "$setup" == yes ]]; then
     gitwo_log 'Existing application .envrc preserved. No Gitwo activation file generated.'
     gitwo_log "Use: gitwo run $(basename "$target") rails <command> (isolated DB)"
     gitwo_log 'Native bin/rails isolation has not been verified by Gitwo.'
+  elif [[ -e "$GITWO_SOURCE/.envrc" || -L "$GITWO_SOURCE/.envrc" ]]; then
+    gitwo_warn 'Application .envrc exists in the primary checkout but was not transferable. Not generating a replacement.'
+    gitwo_log "Use: gitwo run $(basename "$target") rails <command> (isolated DB)"
   elif ! "$GITWO_DIR/workspace-env.sh" init "$target" >&2; then
     gitwo_warn 'Rails workspace is ready through gitwo run, but native bin/rails isolation was not verified.'
     gitwo_log "Use: gitwo run $(basename "$target") rails <command> (isolated DB)"
