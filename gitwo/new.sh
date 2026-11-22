@@ -223,6 +223,7 @@ if [[ -n "$dump_ref" ]]; then
 fi
 if [[ "$freeform" == yes ]]; then
   # Local personal features do not require an origin remote or API access.
+  base_kind=local
   base="$GITWO_BASE_BRANCH"
   git -C "$GITWO_SOURCE" show-ref --verify --quiet "refs/heads/$base" ||
     gitwo_die "Local base branch missing: $base"
@@ -263,7 +264,11 @@ new_error() {
 }
 trap new_error ERR
 gitwo_ui_start "${type} workspace" "$ticket"
-gitwo_ui_meta "Issue" "$ticket"
+if [[ "$freeform" == yes ]]; then
+  gitwo_ui_meta "Feature" "$feature_name"
+else
+  gitwo_ui_meta "Issue" "$ticket"
+fi
 gitwo_ui_meta "Instance" "${instance:-0}"
 gitwo_ui_meta "Branch" "$branch"
 gitwo_ui_meta "Base" "$base"
