@@ -15,8 +15,14 @@ fi
 if grep -R -nE 'curl[[:space:]].*(--insecure|(^|[[:space:]])-k([[:space:]]|$))' gitwo tests/e2e --include='*.sh'; then
   echo 'TLS verification bypass detected' >&2; exit 1
 fi
-grep -q "gem install rails --version '7.2.4'" tests/e2e/rails-postgres.sh || {
-  echo 'Unexpected Rails fixture version' >&2; exit 1;
+grep -Fq 'GITWO_E2E_RAILS_VERSION:-7.2.4' tests/e2e/rails-postgres.sh || {
+  echo 'Default Rails fixture version changed unexpectedly' >&2; exit 1;
+}
+grep -Fq "GITWO_E2E_RAILS_VERSION: '8.1.4.1'" .github/workflows/ci.yml || {
+  echo 'Pinned Rails 8.1 E2E missing' >&2; exit 1;
+}
+grep -Fq "GITWO_E2E_RSPEC_RAILS_VERSION: '8.1.0'" .github/workflows/ci.yml || {
+  echo 'Pinned rspec-rails version missing' >&2; exit 1;
 }
 grep -q 'portless@0.18.1' .github/workflows/ci.yml || {
   echo 'Portless must have an explicit reviewed npm version' >&2; exit 1;
