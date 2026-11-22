@@ -59,7 +59,7 @@ a891f931fc8e25b97f58ca6cec4fd470a9b154160d071da961cbd1a1d56b4131  ./gitwo/servic
 f7e91b410c3d57f2e7a1f8f6acbcaa24617b02d01a499580b2dac5d77bda8383  ./gitwo/setup.sh
 c5db2124e28e155ec46d08eec54ea1e288741e08fda34316b4cacd76c025ea46  ./gitwo/shell.zsh
 687005f1fd763cd07586bfc61b7ea2b2bf4c3cd4d495970239c66eb376a96406  ./gitwo/status.sh
-72be924b4f07e218bbb6d413aa52c5448d6bcc0d0104f699aa17d2368ecba013  ./gitwo/team-onboard.rb
+43147dab6ba0d51cc929f65a38bfb675ed33cd235beb43d87fd23f1194b91474  ./gitwo/team-onboard.rb
 f0b4c68f2ba0c5e7524a1be4a70bff1a00dc244dc31180cb2417be6de6ca1775  ./gitwo/test-all.sh
 7bd7fd3442ff4627b48e46e14529c1d7d4f94056e57bdb19ff6866c3d3169f09  ./gitwo/test-providers.sh
 9c7f3c8a880216a9d3286f52241463b050ceca53195453625705d88870dffd18  ./gitwo/test-rails-config.sh
