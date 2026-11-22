@@ -89,3 +89,19 @@ creating the activation file. Conventional Rails configurations can be prepared
 with `gitwo workspace env integrate --dry-run` and explicitly updated with
 `--apply` after review. The `verify` command does not allocate ports or start Redis.
 See [workspace activation](docs/workspace-activation.md).
+
+## Release candidate preparation
+
+The CLI is pre-release. CI tests synthetic Rails 7.2.4 and Rails 8.1.4.1
+applications with native PostgreSQL/Redis and managed Compose backends.
+The release builder creates a source-only archive and SHA-256 sidecar from the
+committed tree without publishing a GitHub Release:
+
+```sh
+bash scripts/package-release.sh "$PWD/dist"
+bash tests/test-release-package.sh
+```
+
+The archive is installed and tamper-tested on both Linux and macOS in CI.
+See [macOS acceptance](docs/macos-acceptance.md) before trying Gitwo against
+private project data. A release still requires successful real-device acceptance.
