@@ -6,11 +6,12 @@ command="${1:-}"
 case "$command" in
   ''|--help|-h)
     cat <<'EOF'
-Gitwo - ticket worktrees with adapter-managed Rails environments
+Gitwo - named Rails workspaces with optional issue tracker integration
 Usage: gitwo <command> [arguments] [options]
 
 Workspace:
-  new TYPE ISSUE [OPTIONS]       Create a numbered issue worktree (seed by default)
+  new feature [NAME] [OPTIONS]   Create a named isolated Rails workspace (no ticket needed)
+  new TYPE ISSUE [OPTIONS]       Create from Jira, Linear or GitHub issue
   new develop [OPTIONS]          Create develop-1, develop-2,... without an issue tracker
   workspace create ...           Preferred alias for gitwo new (uses same lifecycle)
   workspace enter [WORKSPACE]    Enter a workspace (alias for checkout)
@@ -56,15 +57,17 @@ Run gitwo help new, gitwo help config, or gitwo <command> --help.
 EOF
     ;;
   new) cat <<'EOF'
-Usage: gitwo new <feature|hotfix|bugfix> ISSUE [OPTIONS]
+Usage: gitwo new feature [NAME|ISSUE] [OPTIONS]
+       gitwo new <hotfix|bugfix> ISSUE [OPTIONS]
        gitwo new develop [OPTIONS]
-  --no-setup              Create Git worktree without Rails setup
+  NAME                    Plain-language title or slug; prompts if missing
+  --no-setup              Skip Rails setup explicitly (full setup is default)
   --offline               Use ticket key without contacting Jira
   --title TITLE           Override issue title (no lookup)
   --instance N            Pick an explicit sequential suffix (develop starts at 1)
   --resume                Resume matching existing worktree
   --preview               Show branch/path without creating them
-  --seed | --no-seed      Set default data mode (seed is default)
+  --seed | --no-seed      Seed or skip seeds (defaults to schema-only unless configured)
   --dump=PATH             Restore a pg_dump archive under the configured dumps folder, without seeds
   --db=schema|baseline    Data bootstrap source
   --rebuild-db            Explicit managed DB rebuild with confirmation

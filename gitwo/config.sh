@@ -82,7 +82,7 @@ ruby -e '
     when "GITWO_BASE_BRANCH" then valid = value.match?(%r{\A[a-zA-Z][a-zA-Z0-9._-]*\z}) && !value.include?("..") && !value.end_with?(".lock")
     when "GITWO_DB_PREFIX" then valid = value.match?(%r{\A[a-z][a-z0-9_]{0,20}\z})
     when "GITWO_FEATURE_BASE", "GITWO_HOTFIX_BASE"
-      valid = value.match?(%r{\Aorigin/[A-Za-z0-9][A-Za-z0-9._/-]*\z}) && !value.include?("..") && !value.include?("//") && !value.end_with?(".", "/") && !value.split("/").any? { |p| p.start_with?(".") || p.end_with?(".lock") }
+      valid = (value.match?(%r{\Aorigin/[A-Za-z0-9][A-Za-z0-9._/-]*\z}) || value.match?(%r{\A[A-Za-z][A-Za-z0-9._-]*\z})) && !value.include?("..") && !value.include?("//") && !value.end_with?(".", "/") && !value.split("/").any? { |p| p.start_with?(".") || p.end_with?(".lock") }
     when "GITWO_DB_HOST" then valid = %w[localhost 127.0.0.1].include?(value)
     when "GITWO_DB_PORT" then valid = value.match?(%r{\A[0-9]+\z}) && value.to_i.between?(1024, 65_535)
     when "GITWO_DB_USER" then valid = value.match?(%r{\A[A-Za-z_][A-Za-z0-9_]*\z})

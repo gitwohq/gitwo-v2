@@ -57,7 +57,11 @@ module GitwoDetection
       base_branch = main
     end
     main_ref = "origin/#{main}"
-    if main.nil? || !refs.include?(main_ref)
+    unless refs.include?(main_ref)
+      # Local-only repositories are first-class. Branches can start from the
+      # checked-out primary branch without an origin remote.
+      feature_base = (feature_base == 'origin/develop' && refs.include?('develop')) ? 'develop' : main
+      hotfix_base = main
       workflow['confidence'] = 'low'
     end
 
@@ -125,7 +129,7 @@ module GitwoDetection
         'runtime' => { 'proxy' => proxy, 'domain' => domain }
       },
       'warnings' => [
-        ('No origin remote: branch creation needs an origin remote' if remote.empty?),
+        ('No origin remote: local feature workspaces will start from the primary branch' if remote.empty?),
         ('No origin tracking ref for proposed primary branch' if main_ref && !refs.include?(main_ref)),
         ('Rails is not detected: only Rails adapters are currently supported' unless rails_markers),
         ('PostgreSQL is not detected: Rails adapter setup requires PostgreSQL' unless postgres),

@@ -101,7 +101,9 @@ def validate_value(key, value)
   when 'GITWO_DB_PREFIX'
     valid = value.is_a?(String) && value.match?(%r{\A[a-z][a-z0-9_]{0,20}\z})
   when 'GITWO_FEATURE_BASE', 'GITWO_HOTFIX_BASE'
-    valid = value.is_a?(String) && value.match?(%r{\Aorigin/[A-Za-z0-9][A-Za-z0-9._/-]*\z}) &&
+    valid = value.is_a?(String) &&
+      (value.match?(%r{\Aorigin/[A-Za-z0-9][A-Za-z0-9._/-]*\z}) ||
+       value.match?(/\A[A-Za-z][A-Za-z0-9._-]*\z/)) &&
       !value.include?('..') && !value.include?('//') && !value.end_with?('.', '/') &&
       !value.split('/').any? { |part| part.start_with?('.') || part.end_with?('.lock') }
   when 'GITWO_DB_HOST'

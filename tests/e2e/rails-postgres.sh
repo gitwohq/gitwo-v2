@@ -328,4 +328,23 @@ if [[ "${GITWO_SERVICES_BACKEND:-native}" == compose ]]; then
   [[ -f "$compose_first/pg.password" && -f "$compose_first/pg.port" ]]
 fi
 "$cli" remove develop-2 --dry-run > "$work/remove-dry-run.log" 2>&1 || true
-printf '[PASS] real Rails+PostgreSQL+Redis E2E: two worktrees, native RSpec/Minitest, direnv isolation, seeds, dump/restore, Puma, HTTP, scoped Compose lifecycle\n'
+
+# Full Rails setup is the DEFAULT for a named feature, even when the local
+# repository has no origin remote or Jira/GitHub issue tracker.
+cd "$app"
+git remote remove origin
+[[ -z "$(git remote)" ]]
+named="$("$cli" new feature "Improve search")"
+[[ "$(basename "$named")" == improve-search-1 ]]
+[[ "$(git -C "$named" branch --show-current)" == feature/improve-search-1 ]]
+[[ "$(git -C "$app" branch --show-current)" == main ]]
+[[ -f "$named/.envrc" ]]
+[[ -f "$named/db/schema.rb" ]]
+"$cli" status improve-search-1 --json > "$work/named-status.json"
+ruby -rjson -e 's=JSON.parse(File.read(ARGV.fetch(0))); abort s.inspect unless s["data_source"]=="schema-only" && s["workspace"]=="improve-search-1"' "$work/named-status.json"
+[[ "$(fixture_psql improve-search-1 -d gitwo_fixture_improve_search_1_development -Atqc 'SELECT COUNT(*) FROM widgets')" == 0 ]]
+"$cli" run improve-search-1 rails runner 'abort unless ActiveRecord::Base.connection_db_config.database == "gitwo_fixture_improve_search_1_development"' > "$work/named-rails.log"
+"$cli" list --json | grep -q 'feature/improve-search-1'
+[[ -z "$(git -C "$app" status --porcelain --untracked-files=all)" ]]
+
+printf '[PASS] Rails+PostgreSQL+Redis E2E: named unticketed full setup, worktrees, native tests, direnv, seeds, dump/restore, Puma, Compose\n'

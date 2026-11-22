@@ -4,6 +4,7 @@ here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 for script in "$here"/*.sh "$here"/adapters/*.sh; do bash -n "$script"; done
 for script in "$here"/*.rb; do ruby -c "$script" >/dev/null; done
 "$here/test-universal.sh"
+bash "$here/test-freeform.sh"
 "$here/test-providers.sh"
 bash "$here/test-team-onboard.sh"
 bash "$here/test-scopes.sh"

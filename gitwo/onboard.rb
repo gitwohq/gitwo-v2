@@ -250,8 +250,9 @@ class GitwoOnboard
   def validate_refs(repo, suggested)
     %w[feature_base hotfix_base].each do |key|
       ref = suggested.fetch('branches').fetch(key)
-      unless GitwoProject.git('-C', repo, 'show-ref', '--verify', "refs/remotes/#{ref}") != nil
-        raise ArgumentError, "Required remote branch does not exist: #{ref}. Fetch origin or select a different workflow."
+      prefix = ref.start_with?('origin/') ? 'refs/remotes/' : 'refs/heads/'
+      unless GitwoProject.git('-C', repo, 'show-ref', '--verify', "#{prefix}#{ref}")
+        raise ArgumentError, "Required Git base ref does not exist: #{ref}. Fetch origin or select an existing local branch."
       end
     end
   end

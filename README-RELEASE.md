@@ -5,7 +5,8 @@ It does NOT overwrite older per-project installations or migrate their .state / 
 
 Highlights:
 - `gitwo init` now defaults to private local configuration outside the checkout. Use `gitwo init --scope=team` to deliberately write `gitwo.yml` to the primary repository.
-- `gitwo new` uses `issues.provider: jira | linear | github | none`.
+- `gitwo new feature NAME` creates an isolated Rails workspace without an issue tracker or Git remote, with full Rails setup by default.
+- `gitwo new` also supports `issues.provider: jira | linear | github | none`.
 - GitHub Issues lookup via authenticated `gh api`. Linear via read-only GraphQL issue query.
 - Per-project worktree directories: `<repo-parent>/.gitwo-workspaces/<repo-name>/`.
 - Per-project persistent state: `~/.local/state/gitwo/projects/<sha256(primary checkout realpath)[0..15]>`.

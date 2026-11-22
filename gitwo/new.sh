@@ -3,18 +3,21 @@ set -euo pipefail
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/_common.sh"
 source "$GITWO_DIR/provider-env.sh"
 usage() { cat >&2 <<'USAGE'
-Usage: new.sh <feature|hotfix|bugfix> <ENG-123|JIRA_URL> [options]
+Usage: new.sh feature [NAME|ENG-123|JIRA_URL] [options]
+       new.sh <hotfix|bugfix> <ISSUE> [options]
        new.sh develop [options]     # Sequential local experiments without Jira
 
 Examples (from ANY directory):
-  gitwo new feature ENG-123 --title "Fix API URL in HTTP client" --no-setup
+  gitwo new feature "Improve search"    # Full Rails setup, no issue tracker or remote
+  gitwo new feature ENG-123 --title "Fix API URL in HTTP client"
   gitwo new hotfix https://company.atlassian.net/browse/ENG-125 --no-setup
   gitwo new feature ENG-123 --instance 1 --resume
 
 Options:
   --title "TITLE"  Set issue title manually (no network call).
   --offline        Create a ticket-only branch without a provider API call.
-  --no-setup       Do not install Rails dependencies or databases.
+  --no-setup       Explicitly skip Rails dependencies and isolated databases.
+                   By default, Gitwo prepares the full Rails workspace.
   --db=schema      Bootstrap database from Rails schema (default).
   --db=baseline    Restore locally prepared snapshot into a NEW database.
   --test           Run known RSpec smoke tests during setup.
@@ -29,7 +32,8 @@ Options:
   --verbose        Stream dependency/build output instead of concise steps.
 
 Notes:
-  Issue title lookup uses the configured Jira, Linear or GitHub provider.
+  Feature names are normalized to short slugs, with sequential local names.
+  Issue title lookup applies only when an issue identifier is provided.
   Only a worktree path is written to stdout on successful creation.
 USAGE
 }
@@ -43,8 +47,15 @@ type="$1"; shift
 gitwo_validate_type "$type"
 issue=''
 if [[ "$type" != develop ]]; then
-  [[ $# -ge 1 ]] || { usage; exit 2; }
-  issue="$1"; shift
+  if [[ $# -ge 1 && "$1" != --* ]]; then
+    issue="$1"; shift
+  elif [[ "$type" == feature && -t 0 ]]; then
+    printf 'Feature name (no Jira or GitHub issue required): ' >&2
+    IFS= read -r issue || gitwo_die 'Feature naming cancelled'
+    [[ -n "$issue" ]] || gitwo_die 'Feature name cannot be blank'
+  else
+    gitwo_die 'Enter a feature name or issue key (interactive terminal can prompt for a name)'
+  fi
 fi
 setup=yes; resume=no; db=schema; db_explicit=no; tests=no; seed=auto; seed_yes_seen=no; seed_no_seen=no; dump_ref=''; rebuild_db=no; preview=no; title=''; offline=no; instance=''
 while [[ $# -gt 0 ]]; do
@@ -77,9 +88,33 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
-# No issue provider means no external lookup. Other providers are configured
-# independently; their remote lookup will arrive with provider adapters.
-if [[ "$type" != develop ]]; then
+# Feature descriptions without issue identifiers are first-class local work.
+# Normalize with the existing Unicode/Cyrillic-aware title slugger, then
+# impose a short safe name for the isolated PostgreSQL database identifier.
+freeform=no; feature_name=''
+github_issue=no
+if [[ "${GITWO_ISSUE_PROVIDER:-none}" == github && "$issue" =~ ^(#|GH-)?[1-9][0-9]*$ ]]; then
+  github_issue=yes
+fi
+if [[ "$type" == feature && ! "$issue" =~ ^[A-Za-z][A-Za-z0-9]{1,14}-[0-9]{1,10}$ &&
+      "$issue" != https://* && "$github_issue" == no ]]; then
+  feature_name="$(ruby "$GITWO_DIR/issue.rb" slug "$issue" | tr '[:upper:]' '[:lower:]')" ||
+    gitwo_die 'Feature name contains no usable characters'
+  if (( ${#feature_name} > 24 )); then
+    # Keep names meaningful but always fit PostgreSQL's 63-character identifiers.
+    # The suffix distinguishes long names sharing the same visible prefix.
+    digest="$(printf '%s' "$feature_name" | ruby -rdigest -e 'print Digest::SHA256.hexdigest(STDIN.read)[0, 6]')"
+    stem="${feature_name:0:17}"
+    stem="${stem%-}"
+    feature_name="$stem-$digest"
+  fi
+  gitwo_validate_feature_name "$feature_name"
+  [[ -z "$title" && "$offline" == no ]] ||
+    gitwo_die '--title and --offline apply to issue keys, not freeform feature names'
+  freeform=yes
+fi
+# No issue provider means no external lookup.
+if [[ "$type" != develop && "$freeform" == no ]]; then
   case "${GITWO_ISSUE_PROVIDER:-jira}" in
     none) [[ "$offline" == yes || -n "$title" ]] || offline=yes ;;
 
@@ -132,12 +167,25 @@ if [[ "$type" == develop ]]; then
     branch="$(git -C "$target" branch --show-current)"
     gitwo_verify_target "$target" "$branch"
   fi
+elif [[ "$freeform" == yes ]]; then
+  if [[ "$resume" == yes ]]; then
+    [[ -n "$instance" ]] || gitwo_die 'Freeform feature --resume requires --instance=N'
+  else
+    [[ -n "$instance" ]] || instance="$(gitwo_next_feature_instance "$feature_name")"
+  fi
+  ticket="$feature_name-$instance"
+  target="$GITWO_ROOT/$ticket"
+  branch="feature/$ticket"
+  if [[ "$resume" == yes ]]; then
+    target="$(gitwo_resolve_path "$ticket")"
+    gitwo_verify_target "$target" "$branch"
+  fi
 else
-  # Parsing issue keys is local and independent from network APIs.
+  # Jira/GitHub/Linear keys retain their existing branch contract.
   ticket="$(ruby "$GITWO_DIR/provider.rb" key "$issue")" || exit 2
   gitwo_validate_ticket "$ticket"
 fi
-if [[ "$type" != develop && "$resume" == yes ]]; then
+if [[ "$type" != develop && "$freeform" == no && "$resume" == yes ]]; then
   if [[ -n "$instance" ]]; then
     if [[ "$instance" == 0 ]]; then
       target="$(gitwo_resolve_path "${ticket}-${type}")"
@@ -151,7 +199,7 @@ if [[ "$type" != develop && "$resume" == yes ]]; then
   [[ "$branch" == "$type/"* ]] && gitwo_matches_issue_branch "$branch" "$ticket" || gitwo_die "Worktree is not $type for $ticket: $branch"
   gitwo_verify_target "$target" "$branch"
   gitwo_log "Resuming $branch without fetching or changing its Git state"
-elif [[ "$type" != develop ]]; then
+elif [[ "$type" != develop && "$freeform" == no ]]; then
   [[ -n "$instance" ]] || instance="$(gitwo_next_instance "$ticket" "$type")"
   target="$(gitwo_instance_path "$ticket" "$type" "$instance")"
   resolution_args=(resolve "$issue")
@@ -173,11 +221,26 @@ if [[ -n "$dump_ref" ]]; then
   source "$GITWO_DIR/_dumps.sh"
   dump_ref="$(gitwo_dump_resolve "$dump_ref")"
 fi
-case "$type" in
-  hotfix) base="${GITWO_HOTFIX_BASE}" ;;
-  *) base="${GITWO_FEATURE_BASE}" ;;
-esac
-[[ "$base" == origin/* ]] || gitwo_die "Base must be origin remote-tracking ref: $base"
+if [[ "$freeform" == yes ]]; then
+  # Local personal features do not require an origin remote or API access.
+  base_kind=local
+  base="$GITWO_BASE_BRANCH"
+  git -C "$GITWO_SOURCE" show-ref --verify --quiet "refs/heads/$base" ||
+    gitwo_die "Local base branch missing: $base"
+else
+  case "$type" in
+    hotfix) base="${GITWO_HOTFIX_BASE}" ;;
+    *) base="${GITWO_FEATURE_BASE}" ;;
+  esac
+  if [[ "$base" == origin/* ]]; then
+  base_kind=remote
+else
+  [[ "$base" =~ ^[A-Za-z][A-Za-z0-9._-]*$ ]] || gitwo_die "Unsafe local base ref: $base"
+  base_kind=local
+  git -C "$GITWO_SOURCE" show-ref --verify --quiet "refs/heads/$base" ||
+    gitwo_die "Local base branch missing: $base"
+fi
+fi
 
 if [[ "$preview" == yes ]]; then
   printf 'Issue:    %s\n' "$ticket"
@@ -201,7 +264,11 @@ new_error() {
 }
 trap new_error ERR
 gitwo_ui_start "${type} workspace" "$ticket"
-gitwo_ui_meta "Issue" "$ticket"
+if [[ "$freeform" == yes ]]; then
+  gitwo_ui_meta "Feature" "$feature_name"
+else
+  gitwo_ui_meta "Issue" "$ticket"
+fi
 gitwo_ui_meta "Instance" "${instance:-0}"
 gitwo_ui_meta "Branch" "$branch"
 gitwo_ui_meta "Base" "$base"
@@ -213,15 +280,21 @@ if [[ "$resume" == no ]]; then
     gitwo_die "Local branch already exists: $branch (refusing reset)"
   fi
   gitwo_ui_section '01  Git / source'
-  gitwo_ui_run 'Fetch origin (keep local develop unchanged)' git -C "$GITWO_SOURCE" fetch --prune origin
-  git -C "$GITWO_SOURCE" show-ref --verify --quiet "refs/remotes/$base" || gitwo_die "Missing remote ref $base"
-  if git -C "$GITWO_SOURCE" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
-    gitwo_die "Remote branch already exists: origin/$branch. Refusing duplicate"
+  if [[ "$base_kind" == local ]]; then
+    gitwo_log "Local feature base: $base (no remote fetch required)"
+  else
+    gitwo_ui_run 'Fetch origin (keep local develop unchanged)' git -C "$GITWO_SOURCE" fetch --prune origin
+    git -C "$GITWO_SOURCE" show-ref --verify --quiet "refs/remotes/$base" || gitwo_die "Missing remote ref $base"
+    if git -C "$GITWO_SOURCE" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+      gitwo_die "Remote branch already exists: origin/$branch. Refusing duplicate"
+    fi
   fi
   mkdir -p "$GITWO_ROOT"
   gitwo_ui_run "Create worktree from $base" git -C "$GITWO_SOURCE" worktree add --no-track -b "$branch" "$target" "$base"
   if [[ "$type" == develop ]]; then
     gitwo_record_develop_instance "$instance"
+  elif [[ "$freeform" == yes ]]; then
+    gitwo_record_feature_instance "$feature_name" "$instance"
   else
     gitwo_record_instance "$ticket" "$type" "$instance"
   fi
