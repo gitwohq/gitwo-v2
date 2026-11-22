@@ -71,6 +71,33 @@ gitwo_adapter_assert_database_target() {
   GITWO_EXPECTED_DB="$GITWO_DB_TEST" gitwo_rails test bundle exec rails runner "${test_check}${rake_check}" >/dev/null || gitwo_die 'rails-standard test DB target verification failed'
 }
 
+
+# This is the final readiness gate, after schema, test preparation and seeds.
+# Verify actual PostgreSQL connections rather than merely checking Rails YAML.
+gitwo_adapter_verify_ready_databases() {
+  [[ "$GITWO_DB_DEV" != "$GITWO_DB_TEST" ]] ||
+    gitwo_die 'Development and test database names overlap'
+  [[ "$GITWO_DB_DEV" == "$(gitwo_expected_db_name "$GITWO_PATH" development)" ]] ||
+    gitwo_die 'Unexpected development database identity'
+  [[ "$GITWO_DB_TEST" == "$(gitwo_expected_db_name "$GITWO_PATH" test)" ]] ||
+    gitwo_die 'Unexpected test database identity'
+
+  local env_name expected actual rails_check
+  for env_name in development test; do
+    if [[ "$env_name" == development ]]; then expected="$GITWO_DB_DEV"; else expected="$GITWO_DB_TEST"; fi
+    actual="$(gitwo_pg psql --no-psqlrc -d "$expected" -Atqc 'SELECT current_database()' 2>/dev/null)" ||
+      gitwo_die "Isolated $env_name database is missing or inaccessible: $expected"
+    [[ "$actual" == "$expected" ]] ||
+      gitwo_die "PostgreSQL $env_name target mismatch: expected $expected; got $actual"
+
+    rails_check='db = ActiveRecord::Base.connection; actual = db.select_value("SELECT current_database()"); abort "Rails connected to unexpected database: #{actual}" unless actual == ENV.fetch("GITWO_EXPECTED_DB")'
+    GITWO_EXPECTED_DB="$expected" gitwo_rails "$env_name" bundle exec rails runner "$rails_check" >/dev/null ||
+      gitwo_die "Rails $env_name runtime did not connect to isolated database $expected"
+  done
+  gitwo_adapter_assert_database_target
+  gitwo_ok "Verified isolated Rails development and test databases: $GITWO_DB_DEV / $GITWO_DB_TEST"
+}
+
 gitwo_adapter_build_assets() {
   # The standard adapter avoids Webpack and app-specific i18n tasks.
   gitwo_log 'rails-standard: no application-specific asset build requested'
