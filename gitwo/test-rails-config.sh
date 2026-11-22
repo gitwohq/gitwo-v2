@@ -54,4 +54,19 @@ ln -s "$work/original" "$work/symlink.yml"
 if ruby "$here/rails-config.rb" plan "$work/symlink.yml" >"$work/output" 2>&1; then
   echo 'Expected symlink refusal' >&2; exit 1
 fi
-printf '[PASS] Rails config preview/apply, private backup, idempotence, unsafe-layout rejection\n'
+# A workspace-local ignored file can be specialized without touching the source.
+cp "$work/original" "$work/workspace.yml"
+ruby "$here/rails-config.rb" workspace "$work/workspace.yml" feature_1_development feature_1_test >/dev/null
+grep -Fq 'ENV.fetch("GITWO_DB_DEV", "feature_1_development")' "$work/workspace.yml"
+grep -Fq 'ENV.fetch("GITWO_DB_TEST", "feature_1_test")' "$work/workspace.yml"
+ruby "$here/rails-config.rb" workspace "$work/workspace.yml" feature_1_development feature_1_test >/dev/null
+cp "$work/workspace.yml" "$work/stable"
+cmp "$work/stable" "$work/workspace.yml"
+if ruby "$here/rails-config.rb" workspace "$work/workspace.yml" shared_database shared_database > "$work/error" 2>&1; then
+  echo 'Workspace mode allowed overlapping DBs' >&2; exit 1
+fi
+cmp "$work/stable" "$work/workspace.yml"
+if ruby "$here/rails-config.rb" workspace "$work/reject-original" unsafe/dev safe_test > "$work/error" 2>&1; then
+  echo 'Workspace mode allowed unsafe database identifier' >&2; exit 1
+fi
+printf '[PASS] Rails config preview/apply, private workspace isolation, idempotence, unsafe-layout rejection\n'
