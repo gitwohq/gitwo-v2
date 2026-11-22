@@ -38,3 +38,10 @@ Release-readiness changes (2026-11-22):
 - Pre-release distribution instructions: `bash scripts/package-release.sh "$PWD/dist"` and `bash tests/test-release-package.sh`.
 - The generated `gitwo-4.21.0.tar.gz` and `.sha256` are **local release candidates**, not published GitHub Releases.
 - Before a public release, complete the [macOS acceptance checklist](docs/macos-acceptance.md) on a real trusted Rails project.
+
+
+Team onboarding milestone (2026-11-22): `gitwo onboard` validates committed
+`gitwo.yml`, checks developer dependencies without editing the repository,
+and offers an explicitly confirmed `--setup` for schema-only workspaces.
+`gitwo onboard --check --json` is safe for CI. Clone folder names may differ
+from the shared `project.source` label. See docs/team-onboarding.md.
