@@ -489,7 +489,7 @@ gitwo_rails() {
   shift
   [[ "$env_name" == development || "$env_name" == test ]] || gitwo_die 'Only development/test environment is supported'
   [[ "$env_name" == test ]] && db="$GITWO_DB_TEST"
-  APP_HOST="$(gitwo_app_host)" RAILS_ENV="$env_name" RACK_ENV="$env_name" DATABASE_URL="$(gitwo_db_url "$db")" DB_HOST="$GITWO_DB_HOST" DB_PORT="$GITWO_DB_PORT" DB_USERNAME="$GITWO_DB_USER" \
+  APP_HOST="$(gitwo_app_host)" RAILS_ENV="$env_name" RACK_ENV="$env_name" DATABASE_URL="$(gitwo_db_url "$db")" DB_HOST="$GITWO_DB_HOST" DB_PORT="$GITWO_DB_PORT" DB_USERNAME="$GITWO_DB_USER" GITWO_DB_DEV="$GITWO_DB_DEV" GITWO_DB_TEST="$GITWO_DB_TEST" \
     PGHOST="$GITWO_DB_HOST" PGPORT="$GITWO_DB_PORT" PGUSER="$GITWO_DB_USER" mise exec "ruby@${GITWO_RUBY_VERSION}" -- "$@"
 }
 gitwo_ruby_version() {
