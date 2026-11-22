@@ -331,7 +331,11 @@ if [[ "$setup" == yes ]]; then
     gitwo_log 'Optional native activation: gitwo workspace env integrate --dry-run'
   fi
 else
-  gitwo_warn 'Rails setup skipped. Run setup.sh explicitly when ready.'
+  gitwo_warn 'Rails setup skipped. Worktree exists, but databases have NOT been verified.'
 fi
-gitwo_ui_done "Ready: $target"
+if [[ "$setup" == yes ]]; then
+  gitwo_ui_done "Ready (development/test databases verified): $target"
+else
+  gitwo_ui_done "Created (not provisioned): $target"
+fi
 printf '%s\n' "$target"
