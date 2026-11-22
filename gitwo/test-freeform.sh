@@ -37,6 +37,11 @@ gitwo config validate >/dev/null
 gitwo new feature 'Improve search' --preview > "$tmp/preview.log"
 grep -Fq 'Base:     main' "$tmp/preview.log"
 grep -Fq 'feature/improve-search-1' "$tmp/preview.log"
+gitwo new feature "Improve the very long and descriptive search interface" --preview > "$tmp/long-preview.log"
+ruby -e '
+  branch = File.read(ARGV.fetch(0)).lines.find { |line| line.start_with?("Branch:") }.split.last
+  abort "Invalid shortened branch: #{branch}" unless branch.match?(/\Afeature\/[a-z][a-z0-9-]{0,23}-1\z/)
+' "$tmp/long-preview.log"
 [[ ! -d "$tmp/.gitwo-workspaces/project" ]]
 
 first="$(gitwo new feature 'Improve search' --no-setup)"
