@@ -77,6 +77,13 @@ section from development, or generate a minimal workspace-only configuration
 if the ignored source file is absent. Tracked or unsupported custom configs are
 never modified without an explicit, reviewed integration.
 
+`gitwo detect` and `gitwo init` explicitly show `[NOTICE]` when an existing
+Docker Compose or Dev Container setup is detected but is not configured to
+launch through Gitwo. `gitwo detect --json` exposes the same information in
+`notices` objects (`code`, `status`, `files`, `message`), making the limitation
+visible to agents. Selecting the Gitwo-managed Compose backend also displays
+an explicit notice that this is **not** the application's Compose stack.
+
 Developer Compose variants (for example `compose.local.yml`,
 `docker-compose.dev.yml`) and Dev Container definitions are discovered
 read-only. They are not automatically executed or attached. Gitwo's managed
