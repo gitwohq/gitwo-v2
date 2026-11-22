@@ -92,11 +92,25 @@ done
 # Normalize with the existing Unicode/Cyrillic-aware title slugger, then
 # impose a short safe name for the isolated PostgreSQL database identifier.
 freeform=no; feature_name=''
+github_issue=no
+if [[ "${GITWO_ISSUE_PROVIDER:-none}" == github && "$issue" =~ ^(#|GH-)?[1-9][0-9]*$ ]]; then
+  github_issue=yes
+fi
 if [[ "$type" == feature && ! "$issue" =~ ^[A-Za-z][A-Za-z0-9]{1,14}-[0-9]{1,10}$ &&
-      "$issue" != https://* ]]; then
+      "$issue" != https://* && "$github_issue" == no ]]; then
   feature_name="$(ruby "$GITWO_DIR/issue.rb" slug "$issue" | tr '[:upper:]' '[:lower:]')" ||
     gitwo_die 'Feature name contains no usable characters'
+  if (( ${#feature_name} > 24 )); then
+    # Keep names meaningful but always fit PostgreSQL's 63-character identifiers.
+    # The suffix distinguishes long names sharing the same visible prefix.
+    digest="$(printf '%s' "$feature_name" | ruby -rdigest -e 'print Digest::SHA256.hexdigest(STDIN.read)[0, 6]')"
+    stem="${feature_name:0:17}"
+    stem="${stem%-}"
+    feature_name="$stem-$digest"
+  fi
   gitwo_validate_feature_name "$feature_name"
+  [[ -z "$title" && "$offline" == no ]] ||
+    gitwo_die '--title and --offline apply to issue keys, not freeform feature names'
   freeform=yes
 fi
 # No issue provider means no external lookup.
