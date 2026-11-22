@@ -192,6 +192,15 @@ selected Ruby's `bin/` directory to `PATH` without altering tracked files.
 
 ## Existing developer Compose files and Dev Containers
 
+`gitwo detect --json` includes a stable `notices` array when project
+Compose or Dev Container configs are detected but **not configured to run**.
+Each notice carries `code`, `status: detected_not_configured`, `files` and
+`message`, so an agent can act on it without scraping terminal output.
+`gitwo detect` and `gitwo init` show an explicit `[NOTICE]` for each detected
+unsupported runtime. If a developer selects Gitwo-managed Compose during
+`init`, a second notice clarifies that it provisions only Gitwo-owned
+PostgreSQL/Redis, not the project's own Compose application or Dev Container.
+
 `gitwo detect --json` inventories common developer Compose files such as
 `compose.local.yml`, `compose.dev.yml`, `docker-compose.development.yaml`,
 and `docker-compose.override.yml`, plus Dev Container definitions in
