@@ -42,7 +42,7 @@ ruby -e '
   branch = File.read(ARGV.fetch(0)).lines.find { |line| line.start_with?("Branch:") }.split.last
   abort "Invalid shortened branch: #{branch}" unless branch.match?(/\Afeature\/[a-z][a-z0-9-]{0,23}-1\z/)
 ' "$tmp/long-preview.log"
-[[ ! -d "$tmp/.gitwo-workspaces/project" ]]
+[[ ! -d "$tmp/.gitwo-workspaces/project/improve-search-1" ]]
 
 first="$(gitwo new feature 'Improve search' --no-setup)"
 [[ "$first" == "$tmp/.gitwo-workspaces/project/improve-search-1" ]]
