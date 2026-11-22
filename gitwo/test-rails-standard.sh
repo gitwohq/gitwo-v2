@@ -33,16 +33,29 @@ fi
 grep -Fq 'Missing config/database.yml' "$tmp/missing.log"
 grep -Fq "$GITWO_DB_DEV" "$tmp/missing.log"
 
-cat > config/database.yml <<YAML
+# An ignored, absent config is generated safely for the workspace.
+git init -q -b main "$tmp"
+printf 'config/database.yml\n' > "$tmp/.gitignore"
+GITWO_SOURCE="$tmp"
+gitwo_adapter_prepare_database_config > "$tmp/generated.log" 2>&1
+grep -Fq 'Created isolated, ignored workspace database.yml' "$tmp/generated.log"
+grep -Fq "$GITWO_DB_DEV" config/database.yml
+grep -Fq "$GITWO_DB_TEST" config/database.yml
+git -C "$tmp" check-ignore -q config/database.yml
+
+# A conventional ignored source config is adapted to this workspace's names.
+cat > config/database.yml <<'YAML'
 development:
   adapter: postgresql
-  database: $GITWO_DB_DEV
+  database: shared_app_development
 test:
   adapter: postgresql
-  database: $GITWO_DB_TEST
+  database: shared_app_test
 YAML
 gitwo_adapter_prepare_database_config > "$tmp/existing.log" 2>&1
 grep -Fq 'Custom Rake tasks read config_for(:database)' "$tmp/existing.log"
+grep -Fq 'ENV.fetch("GITWO_DB_DEV", "fixture_feature_1_development")' config/database.yml
+grep -Fq 'ENV.fetch("GITWO_DB_TEST", "fixture_feature_1_test")' config/database.yml
 
 rm config/database.yml
 ln -s "$tmp/nonexistent" config/database.yml
