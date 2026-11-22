@@ -43,7 +43,7 @@ YAML
   fi
   if gitwo_adapter_custom_database_rake_tasks; then
     [[ -f config/database.yml ]] ||
-      gitwo_die "Missing config/database.yml: custom Rake task calls config_for(:database). Provide isolated development/test config before setup."
+      gitwo_die "Missing config/database.yml: custom Rake task calls config_for(:database). Provide isolated development/test config for $GITWO_DB_DEV and $GITWO_DB_TEST before setup."
     gitwo_warn 'Custom Rake tasks read config_for(:database) independently of DATABASE_URL. Both database targets are verified before bootstrapping.'
   fi
   gitwo_log 'rails-standard uses DATABASE_URL; tracked config/database.yml remains unchanged'
