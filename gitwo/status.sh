@@ -42,6 +42,7 @@ gitwo_verify_target "$target" "$branch"
 slug="$(basename "$target")"
 gitwo_validate_workspace_identity "$target" "$branch"
 expected_dev="$(gitwo_expected_db_name "$target" development)"
+expected_test="$(gitwo_expected_db_name "$target" test)"
 state_file="$GITWO_STATE/${slug}.env"
 db_marker="$GITWO_STATE/${slug}.db-ready"
 seed_marker="$GITWO_STATE/${slug}.seed-status"
@@ -79,6 +80,7 @@ else
   field URL "$(gitwo_web_url "$target")"
 fi
 field Database "$expected_dev"
+field 'Test database' "$expected_test"
 if [[ -f "$state_file" && ! -L "$state_file" ]]; then
   field 'Workspace state' present
 else
@@ -131,6 +133,12 @@ if command -v psql >/dev/null 2>&1; then
       fi
     else
       field PostgreSQL 'workspace database missing'
+      failed=1
+    fi
+    if [[ "$(gitwo_pg psql --no-psqlrc -w -d "$expected_test" -Atqc 'SELECT current_database()' 2>/dev/null)" == "$expected_test" ]]; then
+      field 'Test DB check' connected
+    else
+      field 'Test DB check' 'missing, inaccessible or incorrect'
       failed=1
     fi
   else
