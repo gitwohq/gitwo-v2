@@ -25,7 +25,7 @@ for project in alpha beta; do
   git -C "$tmp/work/$project" remote add origin "$tmp/work/$project-remote.git"
   git -C "$tmp/work/$project" push -q -u origin main
   cd "$tmp/work/$project"
-  gitwo init --yes > /dev/null
+  gitwo init --scope=team --yes > /dev/null
   [[ -s gitwo.yml ]]
   [[ "$(ruby -ryaml -e 'puts YAML.load_file("gitwo.yml").dig("issues", "provider")')" == none ]]
   [[ "$(ruby -ryaml -e 'puts YAML.load_file("gitwo.yml").dig("database", "bootstrap")')" == schema ]]
@@ -36,7 +36,7 @@ for project in alpha beta; do
   [[ -d "$tmp/work/.gitwo-workspaces/$project/develop-1" ]]
   gitwo list --json | grep -q "eng-42-feature"
   gitwo doctor >/dev/null
-  gitwo init --yes > "$tmp/reinit.log"
+  gitwo init --scope=team --yes > "$tmp/reinit.log"
   grep -q 'Existing configuration validated' "$tmp/reinit.log"
   [[ "$(git -C "$tmp/work/$project" branch --show-current)" == main ]]
 done
