@@ -57,7 +57,11 @@ module GitwoDetection
       base_branch = main
     end
     main_ref = "origin/#{main}"
-    if main.nil? || !refs.include?(main_ref)
+    unless refs.include?(main_ref)
+      # Local-only repositories are first-class. Branches can start from the
+      # checked-out primary branch without an origin remote.
+      feature_base = (feature_base == 'origin/develop' && refs.include?('develop')) ? 'develop' : main
+      hotfix_base = main
       workflow['confidence'] = 'low'
     end
 
