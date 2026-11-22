@@ -57,9 +57,11 @@ Run gitwo help new, gitwo help config, or gitwo <command> --help.
 EOF
     ;;
   new) cat <<'EOF'
-Usage: gitwo new <feature|hotfix|bugfix> ISSUE [OPTIONS]
+Usage: gitwo new feature [NAME|ISSUE] [OPTIONS]
+       gitwo new <hotfix|bugfix> ISSUE [OPTIONS]
        gitwo new develop [OPTIONS]
-  --no-setup              Create Git worktree without Rails setup
+  NAME                    Plain-language title or slug; prompts if missing
+  --no-setup              Skip Rails setup explicitly (full setup is default)
   --offline               Use ticket key without contacting Jira
   --title TITLE           Override issue title (no lookup)
   --instance N            Pick an explicit sequential suffix (develop starts at 1)
