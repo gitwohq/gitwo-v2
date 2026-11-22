@@ -63,7 +63,9 @@ fi
 branch="$(git -C "$target" branch --show-current)"
 case "$branch" in feature/*|bugfix/*|hotfix/*|experiment/develop-*) ;; *) gitwo_die "Unsupported worktree branch: $branch" ;; esac
 type="$(gitwo_branch_type "$branch")"; ticket="$(gitwo_issue_key_from_branch "$branch")"
-[[ "$type" == develop ]] || gitwo_validate_ticket "$ticket"
+if [[ "$type" != develop && ! ( "$type" == feature && "$branch" =~ ^feature/[a-z][a-z0-9]*(-[a-z0-9]+)*-[1-9][0-9]*$ ) ]]; then
+  gitwo_validate_ticket "$ticket"
+fi
 gitwo_validate_workspace_identity "$target" "$branch"
 gitwo_verify_target "$target" "$branch"
 gitwo_write_state "$target" "$type" "$ticket"
