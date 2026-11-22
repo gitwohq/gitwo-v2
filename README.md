@@ -17,8 +17,8 @@ From a trusted Rails checkout:
 
 ```sh
 gitwo detect
-gitwo init --dry-run
-gitwo init
+gitwo init --scope=local --dry-run
+gitwo init                      # Local scope is default; no project files modified
 gitwo new develop --no-setup
 gitwo list --json
 ```
@@ -106,19 +106,23 @@ The archive is installed and tamper-tested on both Linux and macOS in CI.
 See [macOS acceptance](docs/macos-acceptance.md) before trying Gitwo against
 private project data. A release still requires successful real-device acceptance.
 
-## Shared team onboarding
+## Local and team configuration scopes
+
+Use `gitwo init` for an individual experiment. It stores a private config under
+`~/.config/gitwo/projects/` and never writes into the Rails repository.
+Use `gitwo init --scope=team` only when your team opts into a shared file.
 
 Commit a reviewed `gitwo.yml` to the Rails repository once. Every teammate
 can then clone it under their preferred local directory name and reuse the
 same configuration without running `gitwo init` again:
 
 ```sh
-gitwo onboard               # Validate shared config and local prerequisites
-gitwo onboard --check       # CI-safe, read-only team config contract
-gitwo onboard --check --json
-gitwo onboard --setup       # Explicitly create develop-N without running seeds
+gitwo onboard --scope=team               # Check shared config and local dependencies
+gitwo onboard --scope=team --check       # CI-safe, read-only team contract
+gitwo onboard --scope=team --check --json
+gitwo onboard --scope=team --setup       # Explicitly create develop-N without seeds
 ```
 
 Only `--setup` starts the normal Gitwo worktree/DB initialization path, after
 confirmation. Credentials, runtime state and generated `.envrc` remain local.
-See [team onboarding](docs/team-onboarding.md).
+See [team onboarding](docs/team-onboarding.md) and [scope selection](docs/configuration-scopes.md).
