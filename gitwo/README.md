@@ -37,6 +37,22 @@ Local YAML is stored outside the Git checkout under `~/.config/gitwo/projects/` 
 
 Gitwo worktrees are created in `../.gitwo-workspaces/<source-checkout-name>/`. State is stored in `~/.local/state/gitwo/projects/<project-ID>/`; it is never written into the application repo. `--dump` archives go under the configured project workspaces directory's `dumps/` subfolder.
 
+## Named features first
+
+`gitwo new feature improve-search` creates an isolated Rails workspace and
+its development/test databases by default. It does not require an issue key,
+Jira, GitHub, a Git remote, or even prior `gitwo init`. Run
+`gitwo new feature` interactively to supply a name. Gitwo normalizes a
+human title into a short safe slug and creates `feature/improve-search-1`
+under a matching `improve-search-1` worktree. Repeating the name creates
+`-2`, `-3`, etc. `--no-setup` is an explicit Git-only diagnostic or
+experiment, not the default behavior. Rails setup requires the usual Ruby,
+mise, PostgreSQL and optional Redis/Compose prerequisites.
+
+A personal `gitwo init --scope=local` stores team-independent settings
+outside Git; `--scope=team` optionally creates a reviewed shared YAML.
+The application is not rewritten as part of init.
+
 ## Issue tracking
 
 `issues.provider: jira` supports key lookup and Jira REST v3. Use private `~/.config/gitwo/credentials/<profile>/jira.env` (0600) or environment variables. `issues.credential` selects a nonsecret credential profile.
