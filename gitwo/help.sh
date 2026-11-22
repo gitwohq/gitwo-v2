@@ -35,7 +35,7 @@ Tools:
   init [OPTIONS]                Configure local (default) or team scope
   config scope|use local|team    Inspect or change active configuration
   onboard [--scope=...]         Validate scoped configuration and prerequisites
-  onboard [--check|--setup]      Adopt committed team gitwo.yml (no repeated init)
+  onboard [--scope=local|team]  Validate local (default) or committed team config
   detect [--json]               Inspect repo/framework/workflow without changes
   workspace adopt [WORKSPACE]   Inspect/adopt an existing database
   services <up|down|status> ... Control per-workspace native/Compose dependencies
@@ -45,7 +45,7 @@ Tools:
   dump <list|inspect|create>    Manage private local PostgreSQL archives
   clean [--json]                Audit orphaned metadata; opt-in port cleanup
   repair [WORKSPACE]            Read-only recovery plan
-  config <show|path|validate|init>  Inspect or create optional local gitwo.yml
+  config <path|scope|use|init>   Inspect or select local/team configuration
   doctor [--deps]               Check installation and dependencies
   jira-init                     Set up private Jira credentials
   jira-test ISSUE               Check Jira connectivity
@@ -108,9 +108,9 @@ EOF
   config) cat <<'EOF'
 Usage: gitwo config <show|path|validate|scope|use|init> [--json|local|team]
   show        Display effective nonsecret config (supports --json)
-  path        Print optional gitwo.yml path
+  path        Print selected local/team YAML path
   validate    Validate YAML schema and effective values
-  init        Copy the example safely; never overwrite existing gitwo.yml
+  init        Initialize a local (default) configuration without overwrites
 Local config is stored outside Git under ~/.config/gitwo/projects/.
 Use gitwo init --scope=team to create project-root gitwo.yml deliberately.
 Use project.adapter=project-rails (legacy) or rails-standard (conventional Rails).
