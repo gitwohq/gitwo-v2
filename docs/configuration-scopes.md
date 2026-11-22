@@ -33,7 +33,7 @@ still creates local branches and worktree metadata.
 ```sh
 gitwo init --scope=local
 gitwo onboard --scope=local
-gitwo new develop --no-setup
+gitwo new feature improve-search  # Full isolated Rails setup, no issue key
 gitwo config path
 ```
 
