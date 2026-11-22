@@ -54,13 +54,9 @@ module GitwoConfigLocation
       expanded == project || expanded.start_with?(project + File::SEPARATOR)
     raise ArgumentError, 'Local config must be a YAML file' unless expanded.end_with?('.yml', '.yaml')
     raise ArgumentError, "Refusing symlinked local config: #{expanded}" if File.symlink?(expanded)
-    ancestor = File.dirname(expanded)
-    loop do
-      raise ArgumentError, "Refusing symlinked configuration directory: #{ancestor}" if File.symlink?(ancestor)
-      parent = File.dirname(ancestor)
-      break if parent == ancestor
-      ancestor = parent
-    end
+    # macOS /var is normally a symlink to /private/var. Parent symlinks are
+    # permitted when they resolve outside Git repositories; the file itself
+    # must still be regular and may never be a symlink.
     # If the target is under another checkout (including a linked worktree),
     # local scope must not write there either.
     existing = File.dirname(expanded)
