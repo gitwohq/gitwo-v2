@@ -57,16 +57,19 @@ gitwo_runtime_existing_load() {
     gitwo_die "Invalid runtime ports file: $ports"
   fi
   # Parse numeric metadata as data. Do not execute a ports file as shell code.
-  local key value
+  local key value seen_dev=0 seen_test=0 seen_web=0
   while IFS='=' read -r key value; do
     [[ "$value" =~ ^[0-9]{4,5}$ ]] || gitwo_die "Invalid port in $ports"
+    (( value >= 1024 && value <= 65535 )) || gitwo_die "Out-of-range port in $ports"
     case "$key" in
-      REDIS_DEV_PORT) REDIS_DEV_PORT="$value" ;;
-      REDIS_TEST_PORT) REDIS_TEST_PORT="$value" ;;
-      WEB_PORT) WEB_PORT="$value" ;;
+      REDIS_DEV_PORT) REDIS_DEV_PORT="$value"; seen_dev=$((seen_dev + 1)) ;;
+      REDIS_TEST_PORT) REDIS_TEST_PORT="$value"; seen_test=$((seen_test + 1)) ;;
+      WEB_PORT) WEB_PORT="$value"; seen_web=$((seen_web + 1)) ;;
       *) gitwo_die "Unexpected port key in $ports" ;;
     esac
   done < "$ports"
+  [[ "$seen_dev" == 1 && "$seen_test" == 1 && "$seen_web" == 1 ]] ||
+    gitwo_die "Missing or duplicate runtime port key in $ports"
   [[ "$REDIS_DEV_PORT" != "$REDIS_TEST_PORT" && "$REDIS_DEV_PORT" != "$WEB_PORT" && "$REDIS_TEST_PORT" != "$WEB_PORT" ]] || gitwo_die 'Overlapping runtime ports'
 }
 gitwo_runtime_load() {
