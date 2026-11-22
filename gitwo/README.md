@@ -29,7 +29,7 @@ gitwo init --yes           # Safe noninteractive defaults, schema only
 gitwo init --dry-run       # No changes
 
 gitwo doctor
-gitwo new develop --no-setup
+gitwo new feature "Improve search"    # Fully prepares isolated Rails app
 gitwo new feature ENG-42 --title "Fix API" --no-setup
 ```
 
