@@ -110,8 +110,20 @@ begin
     end
     writer.write(index == prompts.length - 1 ? "y\n" : "\n")
   end
-  status = Timeout.timeout(15) { Process.waitpid2(pid)[1] }
-  abort 'Interactive init failed' unless status.success?
+  # macOS PTYs have a small output buffer; drain it before waiting, otherwise
+  # the child can block on stdout and the parent deadlocks in waitpid.
+  output = ''
+  Timeout.timeout(30) do
+    loop do
+      begin
+        output << reader.readpartial(4096)
+      rescue EOFError, Errno::EIO
+        break
+      end
+    end
+  end
+  status = Process.waitpid2(pid)[1]
+  abort "Interactive init failed:\n#{output}" unless status.success?
 ensure
   reader.close unless reader.closed?
   writer.close unless writer.closed?
