@@ -242,6 +242,7 @@ if [[ "$want_seed" == yes && "$db_exists" != 1 ]]; then
 fi
 
 gitwo_adapter_verify_tests
+gitwo_ui_run 'Verify both live, isolated Rails databases' gitwo_adapter_verify_ready_databases
 if [[ "$db_exists" != 1 ]]; then
   # Record provenance only after successful setup. This is metadata, not a data audit.
   if [[ "$want_db" == dump ]]; then
