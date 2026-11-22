@@ -91,3 +91,11 @@ Set `services.backend: native|compose` in `gitwo.yml`. Compose is opt-in and
 Gitwo-managed, with distinct per-workspace ports and database volume. The
 application's own compose.yaml is never executed. See docs/workspace-activation.md
 for `gitwo services up|down|status` and native Portless alias management.
+
+## Shared team configuration
+
+The team commits `gitwo.yml` once. New developers only run `gitwo onboard`
+to check their local prerequisites, or `gitwo onboard --check` for CI-only
+schema validation. No repeated `gitwo init` is needed after clone.
+`gitwo onboard --setup` is an explicit, confirmed schema-only workspace
+bootstrap without seeds. See [team onboarding](../docs/team-onboarding.md).

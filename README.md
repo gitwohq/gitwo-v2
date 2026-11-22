@@ -105,3 +105,20 @@ bash tests/test-release-package.sh
 The archive is installed and tamper-tested on both Linux and macOS in CI.
 See [macOS acceptance](docs/macos-acceptance.md) before trying Gitwo against
 private project data. A release still requires successful real-device acceptance.
+
+## Shared team onboarding
+
+Commit a reviewed `gitwo.yml` to the Rails repository once. Every teammate
+can then clone it under their preferred local directory name and reuse the
+same configuration without running `gitwo init` again:
+
+```sh
+gitwo onboard               # Validate shared config and local prerequisites
+gitwo onboard --check       # CI-safe, read-only team config contract
+gitwo onboard --check --json
+gitwo onboard --setup       # Explicitly create develop-N without running seeds
+```
+
+Only `--setup` starts the normal Gitwo worktree/DB initialization path, after
+confirmation. Credentials, runtime state and generated `.envrc` remain local.
+See [team onboarding](docs/team-onboarding.md).

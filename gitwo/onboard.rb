@@ -50,8 +50,8 @@ class GitwoOnboard
     end
     if existing
       validated = load_and_validate(existing)
-      expected = validated.dig('project', 'source')
-      raise ArgumentError, "Configuration is for #{expected}, not #{File.basename(project)}" if expected && expected != File.basename(project)
+      # project.source is a shared logical label; each developer may choose a
+      # different clone directory without rewriting the team configuration.
       if @options[:dry_run] || @options[:json]
         puts @options[:json] ? JSON.pretty_generate({ status: 'existing', source: existing, proposed_config: validated, detection: detection }) : "Existing configuration: #{existing}\nNo changes required."
         return

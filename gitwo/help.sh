@@ -33,6 +33,7 @@ Tools:
   run [WORKSPACE] MODE [ARGS]    Run Rails, Minitest, RSpec, console or Sidekiq
   setup [WORKSPACE] [OPTIONS]   Initialize Rails environment
   init [OPTIONS]                Detect project and configure Gitwo
+  onboard [--check|--setup]      Adopt committed team gitwo.yml (no repeated init)
   detect [--json]               Inspect repo/framework/workflow without changes
   workspace adopt [WORKSPACE]   Inspect/adopt an existing database
   services <up|down|status> ... Control per-workspace native/Compose dependencies
@@ -119,6 +120,15 @@ EOF
   clean) printf 'Usage: gitwo clean [--json] [--prune-ports=WORKSPACE]\nAudit or explicitly release orphaned port reservations.\n' ;;
   repair) printf 'Usage: gitwo repair [WORKSPACE]\nRead-only recovery plan.\n' ;;
   doctor) printf 'Usage: gitwo doctor [--deps]\nInspect installation; --deps checks toolchain and Portless TLS.\n' ;;
+  onboard) cat <<'EOF'
+Usage: gitwo onboard [--check] [--local] [--json] [--setup [--yes]] [--project=PATH]
+  --check          Validate committed gitwo.yml only, without local dependencies (CI-safe)
+  --check --local  Validate config and developer tools/credentials without modifications
+  --setup          Explicitly create a new develop workspace with schema-only DBs
+  --yes            Allow explicit --setup without an interactive confirmation
+By default, inspect team config and local dependencies. No automatic gitwo init.
+EOF
+    ;;
   init) cat <<'EOF'
 Usage: gitwo init [--project=PATH] [--config=PATH] [--yes] [--dry-run] [--json]
 Auto-detect Rails/PostgreSQL/Sidekiq/Redis, infer Git workflow, and propose defaults.
