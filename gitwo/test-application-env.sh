@@ -96,4 +96,27 @@ fi
 grep -Fq 'symlinked credentials directory' "$tmp/unsafe.log"
 [[ ! -f "$tmp/development.key" ]]
 
-printf '[PASS] app ENV: existing layout, private copies, .envrc, tracked file preservation, staging/production exclusion, symlink refusal\n'
+# Discover local Compose variants and multiple Dev Container profiles without
+# executing Docker, following symlinks or parsing arbitrary project hooks.
+mkdir -p "$source_root/.devcontainer/rails" "$source_root/.devcontainer/other"
+printf 'services: {}\n' > "$source_root/compose.local.yml"
+printf 'services: {}\n' > "$source_root/docker-compose.development.yaml"
+printf 'services: {}\n' > "$source_root/.devcontainer/docker-compose.yml"
+printf '{"name":"rails"}\n' > "$source_root/.devcontainer/rails/devcontainer.json"
+printf '{"name":"root"}\n' > "$source_root/.devcontainer/devcontainer.json"
+ln -s "$tmp" "$source_root/.devcontainer/other/malicious"
+ln -s /dev/null "$source_root/compose.dev.yml"
+ruby "$here/detect.rb" "$source_root" --json > "$tmp/developer-environments.json"
+ruby -rjson -e '
+  data = JSON.parse(File.read(ARGV.fetch(0))).fetch("detected")
+  compose = data.fetch("compose_files").fetch("value")
+  abort "missing development/local Compose" unless compose.include?("compose.local.yml") &&
+    compose.include?("docker-compose.development.yaml")
+  abort "followed symlinked Compose" if compose.include?("compose.dev.yml")
+  containers = data.fetch("devcontainer_files").fetch("value")
+  abort "missing Dev Container profiles" unless containers.include?(".devcontainer/devcontainer.json") &&
+    containers.include?(".devcontainer/rails/devcontainer.json")
+  compose_in_container = data.fetch("devcontainer_compose_files").fetch("value")
+  abort "missing Dev Container Compose file" unless compose_in_container.include?(".devcontainer/docker-compose.yml")
+' "$tmp/developer-environments.json"
+printf '[PASS] app ENV preservation, Compose/Dev Container discovery, safe symlink handling\n'
