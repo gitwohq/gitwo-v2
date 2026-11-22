@@ -178,6 +178,9 @@ gitwo() {
     detect)
       ruby "$GITWO_LOCAL_DIR/onboard.rb" detect "$@"
       ;;
+    onboard)
+      ruby "$GITWO_LOCAL_DIR/team-onboard.rb" "$@"
+      ;;
     workspace)
       local workspace_action="${1:-}"
       [[ $# -eq 0 ]] || shift
