@@ -120,6 +120,15 @@ EOF
   clean) printf 'Usage: gitwo clean [--json] [--prune-ports=WORKSPACE]\nAudit or explicitly release orphaned port reservations.\n' ;;
   repair) printf 'Usage: gitwo repair [WORKSPACE]\nRead-only recovery plan.\n' ;;
   doctor) printf 'Usage: gitwo doctor [--deps]\nInspect installation; --deps checks toolchain and Portless TLS.\n' ;;
+  onboard) cat <<'EOF'
+Usage: gitwo onboard [--check] [--local] [--json] [--setup [--yes]] [--project=PATH]
+  --check          Validate committed gitwo.yml only, without local dependencies (CI-safe)
+  --check --local  Validate config and developer tools/credentials without modifications
+  --setup          Explicitly create a new develop workspace with schema-only DBs
+  --yes            Allow explicit --setup without an interactive confirmation
+By default, inspect team config and local dependencies. No automatic gitwo init.
+EOF
+    ;;
   init) cat <<'EOF'
 Usage: gitwo init [--project=PATH] [--config=PATH] [--yes] [--dry-run] [--json]
 Auto-detect Rails/PostgreSQL/Sidekiq/Redis, infer Git workflow, and propose defaults.
