@@ -51,10 +51,7 @@ cd "$project"
 gitwo init --dry-run > "$tmp/preview.log"
 grep -Fq 'Scope: local' "$tmp/preview.log"
 grep -Fq "$project" "$tmp/preview.log"
-[[ ! -d "$XDG_CONFIG_HOME/gitwo" && ! -e "$project/gitwo.yml" ]] || {
-  # The directory may exist due to the first project, but beta must have no config.
-  [[ ! -e "$(ruby "$here/config-location.rb" local "$project")" ]]
-}
+[[ ! -e "$(ruby "$here/config-location.rb" local "$project")" && ! -e "$project/gitwo.yml" ]]
 custom="$XDG_CONFIG_HOME/custom/gitwo-beta.yml"
 gitwo init --yes --scope=local --output="$custom" > "$tmp/custom.log"
 [[ -f "$custom" && "$(gitwo config path)" == "$custom" ]]
@@ -82,7 +79,8 @@ gitwo config use local > "$tmp/activated.log"
 gitwo config use team > /dev/null
 [[ "$(gitwo config path)" == "$project/gitwo.yml" ]]
 
-# Independent local clones must not share the same config path.
-make_project alpha
-[[ "$(ruby "$here/config-location.rb" local "$project")" != "$expected" ]]
+# Independent clones with identical basenames must not share configs.
+mkdir -p "$tmp/projects/alternate"
+git clone -q "$tmp/projects/alpha.git" "$tmp/projects/alternate/alpha"
+[[ "$(ruby "$here/config-location.rb" local "$tmp/projects/alternate/alpha")" != "$expected" ]]
 printf '[PASS] local/team scopes, safe config paths, idempotent init and explicit activation\n'
