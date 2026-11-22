@@ -29,7 +29,8 @@ Redis and Portless. `gitwo doctor --deps` checks the local prerequisites.
 ## Everyday workflow
 
 ```sh
-gitwo new feature ENG-123
+gitwo new feature improve-search      # No issue key, Git remote or cloud account
+# Or: gitwo new feature ENG-123   # Ticket-based workflow remains supported
 gitwo up
 gitwo run test  # Auto-detects Minitest or RSpec
 gitwo status
