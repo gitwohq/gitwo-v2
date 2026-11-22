@@ -3,7 +3,24 @@
 set -euo pipefail
 here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/gitwo-rails-standard.XXXXXXXX")"
-trap 'rm -rf -- "$tmp"' EXIT
+cleanup() {
+  local result="$?"
+  if [[ "$result" -ne 0 ]]; then
+    printf '[FAIL] Rails adapter test failed (exit %s)\n' "$result" >&2
+    for log in no-custom missing generated existing symlink; do
+      if [[ -f "$tmp/$log.log" ]]; then
+        printf '%s\n' "--- $log.log ---" >&2
+        cat "$tmp/$log.log" >&2
+      fi
+    done
+    if [[ -f "$tmp/config/database.yml" && ! -L "$tmp/config/database.yml" ]]; then
+      printf '%s\n' '--- generated database.yml ---' >&2
+      cat "$tmp/config/database.yml" >&2
+    fi
+  fi
+  rm -rf -- "$tmp"
+}
+trap cleanup EXIT
 cd "$tmp"
 mkdir -p config lib/tasks
 GITWO_DIR="$here"
