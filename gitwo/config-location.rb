@@ -5,6 +5,7 @@ require 'digest'
 require 'fileutils'
 require 'pathname'
 require 'securerandom'
+require 'open3'
 
 module GitwoConfigLocation
   module_function
@@ -54,12 +55,20 @@ module GitwoConfigLocation
     raise ArgumentError, 'Local config must be a YAML file' unless expanded.end_with?('.yml', '.yaml')
     raise ArgumentError, "Refusing symlinked local config: #{expanded}" if File.symlink?(expanded)
     ancestor = File.dirname(expanded)
-    until File.exist?(ancestor) || File.symlink?(ancestor)
+    loop do
+      raise ArgumentError, "Refusing symlinked configuration directory: #{ancestor}" if File.symlink?(ancestor)
       parent = File.dirname(ancestor)
       break if parent == ancestor
       ancestor = parent
     end
-    raise ArgumentError, "Refusing symlinked configuration directory: #{ancestor}" if File.symlink?(ancestor)
+    # If the target is under another checkout (including a linked worktree),
+    # local scope must not write there either.
+    existing = File.dirname(expanded)
+    existing = File.dirname(existing) until File.directory?(existing) || File.dirname(existing) == existing
+    if File.directory?(existing)
+      root, status = Open3.capture2('git', '-C', existing, 'rev-parse', '--show-toplevel', err: File::NULL)
+      raise ArgumentError, 'Local config must not be inside any Git checkout' if status.success? && !root.strip.empty?
+    end
     expanded
   end
 
