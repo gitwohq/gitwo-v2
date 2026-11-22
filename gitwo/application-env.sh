@@ -31,6 +31,15 @@ gitwo_application_env_copy_ignored() {
       gitwo_warn "Not copying untracked, non-ignored application file: $file"
       continue
     fi
+    # Reject unsafe parent directories even if the target's ignore rules
+    # diverged; checking Git ignore state must not silently hide a symlink.
+    if [[ "$file" == config/* && -L "$target_root/config" ]]; then
+      gitwo_die 'Refusing application ENV copy through symlinked config directory'
+    fi
+    if [[ "$file" == config/credentials/* && -L "$target_root/config/credentials" ]]; then
+      gitwo_die 'Refusing application ENV copy through symlinked credentials directory'
+    fi
+
     # The target branch may have changed .gitignore. Never expose an ignored
     # source secret as an untracked, visible file in another worktree.
     if ! git -C "$target_root" check-ignore -q -- "$file"; then
