@@ -44,21 +44,24 @@ gitwo_compose_prepare() {
   [[ ! -e "$dir/pg.password" || ( -f "$dir/pg.password" && ! -L "$dir/pg.password" ) ]] || gitwo_die 'Unsafe Compose password file'
   mkdir -p "$dir"; chmod 700 "$dir"
   if [[ ! -f "$dir/pg.port" ]]; then
-    lock="$GITWO_GLOBAL_STATE_ROOT/.compose-port-lock"
-    for ((i=0;i<100;i++)); do
-      if mkdir "$lock" 2>/dev/null; then break; fi
-      sleep .1
-    done
-    [[ "$i" -lt 100 ]] || gitwo_die 'Compose port reservation lock busy'
-    if [[ ! -f "$dir/pg.port" ]]; then
-      for ((pg=23000;pg<=25999;pg++)); do
-        if ! grep -lqx "$pg" "$GITWO_GLOBAL_STATE_ROOT"/projects/*/runtime/*/compose/pg.port >/dev/null 2>&1 &&
-           _gitwo_runtime_port_free "$pg"; then break; fi
+    (
+      # A failure or interruption must never leave a stale reservation lock.
+      lock="$GITWO_GLOBAL_STATE_ROOT/.compose-port-lock"
+      for ((i=0;i<100;i++)); do
+        if mkdir "$lock" 2>/dev/null; then break; fi
+        sleep .1
       done
-      [[ "$pg" -le 25999 ]] || gitwo_die 'No free Compose PostgreSQL port'
-      (umask 077; set -C; printf '%s\n' "$pg" > "$dir/pg.port") || gitwo_die 'Compose port collision'
-    fi
-    rmdir "$lock"
+      [[ "$i" -lt 100 ]] || gitwo_die 'Compose port reservation lock busy'
+      trap 'rmdir "$lock" 2>/dev/null || true' EXIT
+      if [[ ! -f "$dir/pg.port" ]]; then
+        for ((pg=23000;pg<=25999;pg++)); do
+          if ! grep -lqx "$pg" "$GITWO_GLOBAL_STATE_ROOT"/projects/*/runtime/*/compose/pg.port >/dev/null 2>&1 &&
+             _gitwo_runtime_port_free "$pg"; then break; fi
+        done
+        [[ "$pg" -le 25999 ]] || gitwo_die 'No free Compose PostgreSQL port'
+        (umask 077; set -C; printf '%s\n' "$pg" > "$dir/pg.port") || gitwo_die 'Compose port collision'
+      fi
+    )
   fi
   if [[ ! -f "$dir/pg.password" ]]; then
     password="$(ruby -rsecurerandom -e 'print SecureRandom.hex(24)')"
@@ -98,8 +101,19 @@ YAML
     ) || gitwo_die 'Cannot create managed Compose file'
   fi
   [[ -f "$dir/compose.yml" && ! -L "$dir/compose.yml" ]] || gitwo_die 'Unsafe managed Compose file'
-  (umask 077; printf 'GITWO_COMPOSE_DB_USER=%s\nGITWO_COMPOSE_DB_PASSWORD=%s\nGITWO_COMPOSE_PG_PORT=%s\nGITWO_COMPOSE_REDIS_DEV_PORT=%s\nGITWO_COMPOSE_REDIS_TEST_PORT=%s\n' \
-    "$GITWO_DB_USER" "$PGPASSWORD" "$GITWO_DB_PORT" "$REDIS_DEV_PORT" "$REDIS_TEST_PORT" > "$dir/compose.env")
+  # PostgreSQL volumes retain their initial credentials. Never silently change
+  # the container initialization parameters on a subsequent workspace startup.
+  local expected_env
+  expected_env="$(printf 'GITWO_COMPOSE_DB_USER=%s\nGITWO_COMPOSE_DB_PASSWORD=%s\nGITWO_COMPOSE_PG_PORT=%s\nGITWO_COMPOSE_REDIS_DEV_PORT=%s\nGITWO_COMPOSE_REDIS_TEST_PORT=%s\n' \
+    "$GITWO_DB_USER" "$PGPASSWORD" "$GITWO_DB_PORT" "$REDIS_DEV_PORT" "$REDIS_TEST_PORT")"
+  if [[ -e "$dir/compose.env" || -L "$dir/compose.env" ]]; then
+    [[ -f "$dir/compose.env" && ! -L "$dir/compose.env" ]] || gitwo_die 'Unsafe managed Compose environment file'
+    [[ "$(cat "$dir/compose.env")" == "$expected_env" ]] ||
+      gitwo_die 'Managed Compose settings changed; refusing to rewrite persisted PostgreSQL credentials or ports'
+  else
+    (umask 077; set -C; printf '%s\n' "$expected_env" > "$dir/compose.env") ||
+      gitwo_die 'Cannot safely create managed Compose environment file'
+  fi
 }
 gitwo_compose_up() {
   [[ "$GITWO_SERVICES_BACKEND" == compose ]] || return 0
