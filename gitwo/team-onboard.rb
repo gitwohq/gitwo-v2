@@ -22,7 +22,7 @@ class GitwoTeamOnboard
       options.on('-h', '--help', 'Show help') { puts options; exit 0 }
     end
     parser.parse!(argv)
-    raise ArgumentError, "Unexpected arguments: #{'#{argv.join(" ")}'}" unless argv.empty?
+    raise ArgumentError, "Unexpected arguments: #{argv.join(" ")}" unless argv.empty?
     raise ArgumentError, '--setup cannot be combined with --check or --json' if @options[:setup] && (@options[:check] || @options[:json])
     raise ArgumentError, '--yes is valid only with --setup' if @options[:yes] && !@options[:setup]
     @options[:local] = true unless @options[:check]
@@ -88,7 +88,7 @@ class GitwoTeamOnboard
     puts 'Next: review the generated .envrc inside the workspace and run direnv allow .'
     finish
   rescue ArgumentError, SystemCallError, Psych::Exception => error
-    warn "gitwo onboard: #{'#{error.message}'}"
+    warn "gitwo onboard: #{error.message}"
     2
   end
 
@@ -125,7 +125,7 @@ class GitwoTeamOnboard
 
   def dependency(name, why)
     available = executable?(name)
-    record("tool_#{'#{name}'}", available, available ? "#{name} available" : "Install #{name} (#{why})")
+    record("tool_#{name}", available, available ? "#{name} available" : "Install #{name} (#{why})")
   end
 
   def local_checks
