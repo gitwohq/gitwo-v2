@@ -28,7 +28,12 @@ GITWO_PROJECT_ID="$(printf '%s' "$GITWO_SOURCE" | ruby -rdigest -e 'print Digest
 GITWO_GLOBAL_STATE_ROOT="${GITWO_GLOBAL_STATE_ROOT:-$HOME/.local/state/gitwo}"
 GITWO_STATE="${GITWO_STATE:-$GITWO_GLOBAL_STATE_ROOT/projects/$GITWO_PROJECT_ID}"
 GITWO_ROOT="${GITWO_WORKSPACES_ROOT:-$(dirname "$GITWO_SOURCE")/.gitwo-workspaces/$GITWO_PROJECT_SOURCE}"
-GITWO_CONFIG_FILE="${GITWO_CONFIG_FILE:-$GITWO_SOURCE/gitwo.yml}"
+# Resolve the personal XDG config first, then an existing team config.
+# GITWO_SCOPE selects the mode explicitly; GITWO_CONFIG_FILE remains a manual override.
+if [[ -z "${GITWO_CONFIG_FILE:-}" ]]; then
+  GITWO_CONFIG_FILE="$(ruby "$GITWO_DIR/config-location.rb" active "$GITWO_SOURCE")" ||
+    { printf 'gitwo: could not resolve local/team configuration\n' >&2; exit 2; }
+fi
 export GITWO_CONFIG_FILE GITWO_SOURCE GITWO_PROJECT_SOURCE GITWO_PROJECT_ID GITWO_STATE GITWO_ROOT GITWO_GLOBAL_STATE_ROOT
 
 C_RESET='' C_CYAN='' C_GREEN='' C_YELLOW='' C_RED='' C_MUTED=''
