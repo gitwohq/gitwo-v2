@@ -32,7 +32,7 @@ rspec_rails_version="${GITWO_E2E_RSPEC_RAILS_VERSION:-7.1.0}"
 [[ "$rails_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || { echo 'Invalid Rails version' >&2; exit 2; }
 [[ "$rspec_rails_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Invalid rspec-rails version' >&2; exit 2; }
 gem install rails --version "$rails_version" --no-document
-rails "_$rails_version" new "$app" --database=postgresql --skip-git --skip-bundle \
+rails "_${rails_version}_" new "$app" --database=postgresql --skip-git --skip-bundle \
   --skip-javascript --skip-hotwire --skip-jbuilder --skip-system-test \
   --skip-docker --skip-kamal > "$work/rails-new.log"
 cd "$app"
