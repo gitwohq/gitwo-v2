@@ -31,6 +31,12 @@ gitwo_application_env_copy_ignored() {
       gitwo_warn "Not copying untracked, non-ignored application file: $file"
       continue
     fi
+    # The target branch may have changed .gitignore. Never expose an ignored
+    # source secret as an untracked, visible file in another worktree.
+    if ! git -C "$target_root" check-ignore -q -- "$file"; then
+      gitwo_warn "Not copying application file into non-ignored worktree path: $file"
+      continue
+    fi
     if [[ -L "$target" ]]; then
       gitwo_warn "Existing symlinked application environment file left untouched: $file"
       continue
