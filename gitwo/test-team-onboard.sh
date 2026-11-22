@@ -59,7 +59,7 @@ git -C "$project" push -q -u origin main
 project_sha_before="$(git -C "$project" status --porcelain --untracked-files=all)"
 
 # Team CI check must neither need Docker nor modify repo or HOME.
-ruby "$here/team-onboard.rb" --project="$project" --check --json > "$tmp/check.json"
+ruby "$here/team-onboard.rb" --scope=team --project="$project" --check --json > "$tmp/check.json"
 ruby -rjson -e '
   result = JSON.parse(File.read(ARGV.fetch(0)))
   abort result.inspect unless result["status"] == "ok" && result["mode"] == "check"
@@ -69,7 +69,7 @@ ruby -rjson -e '
 [[ "$(git -C "$project" status --porcelain --untracked-files=all)" == "$project_sha_before" ]]
 [[ ! -e "$HOME/.local/state/gitwo" ]]
 # Pre-existing configs can be reused, even from a different local clone name.
-ruby "$here/onboard.rb" init --project="$project" --yes > "$tmp/reuse.out"
+ruby "$here/onboard.rb" init --scope=team --project="$project" --yes > "$tmp/reuse.out"
 grep -Fq 'Existing configuration validated' "$tmp/reuse.out"
 GITWO_PROJECT_ROOT="$project" bash "$here/config.sh" validate > "$tmp/config-validation.out"
 
@@ -81,13 +81,13 @@ workspace="$(GITWO_PROJECT_ROOT="$project" bash "$here/new.sh" develop --no-setu
 
 # The CI check refuses untracked or symlinked team configuration.
 git -C "$project" rm --cached -q gitwo.yml
-if ruby "$here/team-onboard.rb" --project="$project" --check > "$tmp/untracked.log" 2>&1; then
+if ruby "$here/team-onboard.rb" --scope=team --project="$project" --check > "$tmp/untracked.log" 2>&1; then
   echo 'Expected uncommitted shared configuration to be refused' >&2; exit 1
 fi
 git -C "$project" reset -q HEAD gitwo.yml
 mv "$project/gitwo.yml" "$tmp/safe-gitwo.yml"
 ln -s "$tmp/safe-gitwo.yml" "$project/gitwo.yml"
-if ruby "$here/team-onboard.rb" --project="$project" --check > "$tmp/symlink.log" 2>&1; then
+if ruby "$here/team-onboard.rb" --scope=team --project="$project" --check > "$tmp/symlink.log" 2>&1; then
   echo 'Expected symlinked shared configuration refusal' >&2; exit 1
 fi
 rm "$project/gitwo.yml"
@@ -96,13 +96,13 @@ mv "$tmp/safe-gitwo.yml" "$project/gitwo.yml"
 # Strict YAML parser must reject executable object tags without evaluation.
 cp "$project/gitwo.yml" "$tmp/original.yml"
 printf '%s\n' '--- !ruby/object:Kernel {}' > "$project/gitwo.yml"
-if ruby "$here/team-onboard.rb" --project="$project" --check > "$tmp/malicious.log" 2>&1; then
+if ruby "$here/team-onboard.rb" --scope=team --project="$project" --check > "$tmp/malicious.log" 2>&1; then
   echo 'Unsafe YAML was accepted' >&2; exit 1
 fi
 cp "$tmp/original.yml" "$project/gitwo.yml"
-if ruby "$here/team-onboard.rb" --project="$project" --check --setup > "$tmp/invalid.log" 2>&1; then
+if ruby "$here/team-onboard.rb" --scope=team --project="$project" --check --setup > "$tmp/invalid.log" 2>&1; then
   echo 'Conflicting check/setup options were accepted' >&2; exit 1
 fi
-ruby "$here/team-onboard.rb" --project="$project" --check > "$tmp/recovered.log"
+ruby "$here/team-onboard.rb" --scope=team --project="$project" --check > "$tmp/recovered.log"
 [[ "$(git -C "$project" status --porcelain --untracked-files=all)" == "$project_sha_before" ]]
 printf '[PASS] team onboarding: committed config, renamed clone, read-only CI, strict YAML and safe refusals\n'
