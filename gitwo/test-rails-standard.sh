@@ -75,6 +75,24 @@ grep -Fq 'Custom Rake tasks read config_for(:database)' "$tmp/existing.log"
 grep -Fq 'ENV.fetch("GITWO_DB_DEV", "fixture_feature_1_development")' config/database.yml
 grep -Fq 'ENV.fetch("GITWO_DB_TEST", "fixture_feature_1_test")' config/database.yml
 
+# Tracked database.yml must never be mutated, even with an ignored
+# source convention. This fixture intentionally forces the file into Git.
+git -C "$tmp" config user.email fixture@example.invalid
+git -C "$tmp" config user.name Fixture
+git -C "$tmp" add -f config/database.yml
+git -C "$tmp" commit -qm 'Track database configuration on this branch'
+cat > config/database.yml <<'YAML'
+development:
+  adapter: postgresql
+  database: tracked_development
+test:
+  adapter: postgresql
+  database: tracked_test
+YAML
+cp config/database.yml "$tmp/tracked-original"
+gitwo_adapter_prepare_database_config > "$tmp/tracked.log" 2>&1
+cmp config/database.yml "$tmp/tracked-original"
+
 rm config/database.yml
 ln -s "$tmp/nonexistent" config/database.yml
 if (gitwo_adapter_prepare_database_config) > "$tmp/symlink.log" 2>&1; then
