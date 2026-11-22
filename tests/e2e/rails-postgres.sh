@@ -26,18 +26,23 @@ command -v redis-server >/dev/null || { echo 'Missing Redis server' >&2; exit 2;
 pg_isready -h "${PGHOST:-127.0.0.1}" -U "${PGUSER:?}" -d postgres
 
 # A real Rails installation is required: do not mock ActiveRecord, Bundler or Puma.
-gem install rails --version '7.2.4' --no-document
-rails _7.2.4_ new "$app" --database=postgresql --skip-git --skip-bundle \
+# Each CI job pins Rails and its compatible RSpec release explicitly.
+rails_version="${GITWO_E2E_RAILS_VERSION:-7.2.4}"
+rspec_rails_version="${GITWO_E2E_RSPEC_RAILS_VERSION:-7.1.0}"
+[[ "$rails_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || { echo 'Invalid Rails version' >&2; exit 2; }
+[[ "$rspec_rails_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Invalid rspec-rails version' >&2; exit 2; }
+gem install rails --version "$rails_version" --no-document
+rails "_$rails_version" new "$app" --database=postgresql --skip-git --skip-bundle \
   --skip-javascript --skip-hotwire --skip-jbuilder --skip-system-test \
   --skip-docker --skip-kamal > "$work/rails-new.log"
 cd "$app"
 # Keep the Ruby version identical for ruby/setup-ruby and mise.
-printf '3.3.14\n' > .ruby-version
+printf '%s\n' "${GITWO_E2E_RUBY_VERSION:-3.3.14}" > .ruby-version
 # Test standard RSpec and Rails Minitest commands without Gitwo's run wrapper.
-cat >> Gemfile <<'RUBY'
+cat >> Gemfile <<RUBY
 gem 'redis', '~> 5.0'
 group :test do
-  gem 'rspec-rails', '~> 7.1'
+  gem 'rspec-rails', '$rspec_rails_version'
 end
 RUBY
 # The safe integration command is exercised after the repository is initialized.
