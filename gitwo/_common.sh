@@ -121,7 +121,7 @@ gitwo_issue_key_from_branch() {
     key="${BASH_REMATCH[1]}"
     gitwo_validate_ticket "$key"
     printf "%s\n" "$key"
-  elif [[ "$1" =~ ^feature/([a-z][a-z0-9]*(?:-[a-z0-9]+)*)-([1-9][0-9]*)$ ]]; then
+  elif [[ "$1" =~ ^feature/([a-z][a-z0-9]*(-[a-z0-9]+)*)-([1-9][0-9]*)$ ]]; then
     # Local feature workspaces identify their work item by a normalized name
     # plus a sequential instance. No issue tracker is involved.
     printf '%s\n' "${1#feature/}"
