@@ -139,7 +139,7 @@ gitwo_validate_type() {
   [[ "$1" == feature || "$1" == hotfix || "$1" == bugfix || "$1" == develop ]] || gitwo_die "Type must be feature, hotfix, bugfix, or develop"
 }
 gitwo_validate_feature_name() {
-  [[ "$1" =~ ^[a-z][a-z0-9]*(-[a-z0-9]+)*$ && ${#1} -le 24 ]] ||
+  [[ "$1" =~ ^[a-z][a-z0-9]*(-[a-z0-9]+)*$ && ${#1} -le 24 && "$1" != develop ]] ||
     gitwo_die 'Feature name must be a lowercase slug (letters/digits/hyphens, max 24 chars)'
 }
 # No Jira key is required for sequential development experiments.
