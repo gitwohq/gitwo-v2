@@ -7,7 +7,7 @@ d7c35aee4fff5546ae7583647f86b5f6a3528c91a399b36dd0d7e08af8462790  ./docs/configu
 37d53358524a02ed25aa37cb04ad1c8714357e0b92603a61df0ad280006f3f6c  ./docs/macos-acceptance.md
 28afefe5eb14fc1fbf127486057a345013202d407247caf638d224e447399002  ./docs/release-security-review.md
 3692782244dd7ecab5b0c42b06ac2f1ed5f38504cec39ee88053b46fea29048d  ./docs/team-onboarding.md
-1397933aec3bd766f7813557733f3c160004df164ec2975bb1fe266551b425c5  ./docs/workspace-activation.md
+4f68bfe87ba47bf43b12f81f198b9e17e4d426a3acae8ce6b69a6ab9d76769c8  ./docs/workspace-activation.md
 98b7c6f4208fce87df7f1941ad1f4dd7c4d99f4275b0a1233bda41bf1291b962  ./gitwo/_adapter.sh
 5fd222f74815e361968a1fa7eadac73b32c2ef3e7f29262ab09780f5285c6ed8  ./gitwo/_common.sh
 af51a31e2f0618aa4c0b099dcc3f484faf1d967b4efe9f0f93b728aaaa94e0f7  ./gitwo/_dumps.sh
@@ -29,7 +29,7 @@ fab4912cfe544f11174a3001cb3d19967cce65d060d4d45998ea22e7fb32a4b9  ./gitwo/clean.
 42910abe0a3f9513720ac40b396f368f708009d3aa0a521e55851e52f198e80d  ./gitwo/config.example.yml
 cc2a2ded7b32899e494e8f41a871f5e16616ed472dd62e9ed04b6e75021a796b  ./gitwo/config.rb
 ceaba5052a9195bd2b46e3b106de66b6fe14c29d016e9197ce906cce3639727f  ./gitwo/config.sh
-ae39ca33be476b8e1d28d739aae8b886bb26ca5020290a719220a18465fd11f5  ./gitwo/detect.rb
+086c5c35d9723f051f1e7698b95d64df98f11d0ac9d052b3d17049082cbfb486  ./gitwo/detect.rb
 c53e25181a406f1f346eb187e503fefbaf2f78d1ebdbe61907071332efff58f0  ./gitwo/detect.sh
 faabac05edc74137fd06be42f872505ec424ad03f1bf99ef066d92d9e84fb14f  ./gitwo/direnv.sh
 c9833ef850e93438d5f503852f7dbb00485f607a1d77fb00c6423671604b8fd2  ./gitwo/docs/compatibility.md
@@ -47,14 +47,14 @@ ca1fe259ede951f76884444a82f7c7449f2bec4277bf443511f2c05b86ef92f9  ./gitwo/jira.e
 f6b45fd31c715a412bc491d97351c00330024f7754e6855d0a45762115e037a4  ./gitwo/list.sh
 7d95d71f63adc79c17bbaa01e3628351cf99d6ecb08d018e35a0b6d8beb95372  ./gitwo/logs.sh
 c93640aeba285acaa49c86b8f9c5eaa77797adb18a8683f923170f0e05ca31ac  ./gitwo/new.sh
-5f3f52896fe2217b9c945a05786dbcf1761171da58d864b6e6e27846796e58ba  ./gitwo/onboard.rb
+647f42add24c3a0ca35c4c3825fb03dfa3e5c39a0ce9f62abd777b1f88617cd8  ./gitwo/onboard.rb
 b61ccab21a5bc1903182443de6d2e828f599df57d716a9d720d3db3f374aaca1  ./gitwo/open.sh
 958a3d329f3dc199475cc19129310cab06b0999c14fdb087a4c3d9579d77a514  ./gitwo/project.rb
 cc5563357938e10ee98ee2243333319d8921e6019bd299803fe5025b1e33d209  ./gitwo/provider-env.sh
 8e6de22d492900627fc71c40eb7fb1a0fa57eecd4bf438d893e2eac51f5f1a7b  ./gitwo/provider.rb
 426420871048afcd97eaf570ffe2d648346b074b15aeeeab6317cf7a57f3ba3d  ./gitwo/proxy.sh
 ed80729f0a9c0fc359779d41dca81b9aa05e0284f35ca1efc47a1d0ffe5483c9  ./gitwo/rails-config.rb
-f326b4a8805163e1ed526e0ae141d07eeec799430e7bed0bdf489254abff5984  ./gitwo/README.md
+72fceccac1513aa526c1b4b21480ca73680984a45b7950c8bbc173651893a514  ./gitwo/README.md
 53d0644fe705af0860b654fba793d3b466caef2f509e8d8e5e257429bb905e21  ./gitwo/redis.sh
 4658a3d6ed0fe6bebc4205eee689a4e6768c06b310b75a4fbb3c8a7d4aec5dc1  ./gitwo/remove.sh
 9d4de2575b958684310dba476fe464d9748fb5898fa9db44d5906371ed8a8a77  ./gitwo/repair.sh
@@ -65,7 +65,7 @@ c5db2124e28e155ec46d08eec54ea1e288741e08fda34316b4cacd76c025ea46  ./gitwo/shell.
 df71fb5f7859fa8ef4901c3333eae7818bbc6ad67bd85017ea0b9d93b91a5986  ./gitwo/status.sh
 a7076773f388951128ad5b45adfec79b3c3b5655747da38c145f3a0973417375  ./gitwo/team-onboard.rb
 1197fee97d8267fe5b7d771ee600c19380aaee62e513177622d4f980feb32335  ./gitwo/test-all.sh
-7e179a4a983b168c4892f649e2fda1fa317eeeb7e324ae0f0c70a0801a8b0caf  ./gitwo/test-application-env.sh
+873fc209d2f7299262a5e9fe2db57807e2a28bb9e36b3bcb13e8e1e9c8dd9350  ./gitwo/test-application-env.sh
 bdcdf033cd7fb8eb9ce0bca14ad6735aea233f415d53e66609eff9bdc9e34f83  ./gitwo/test-freeform.sh
 7bd7fd3442ff4627b48e46e14529c1d7d4f94056e57bdb19ff6866c3d3169f09  ./gitwo/test-providers.sh
 add2a4f34b3a53886b5596fbfa7f22e83dd69715008334de5f0e599a8caf0110  ./gitwo/test-rails-config.sh
@@ -86,6 +86,6 @@ d7be6d30cd8f218b5acf1526d704948faad3001fdd036ffbb4cec915fbb7fb2e  ./scripts/pack
 3c7777cf06f16a1acc80f39a8b201e64dc19c66c05ee34985c065fbc1ffe9f37  ./SECURITY.md
 09349858c2085896575b3cec80a0e7a23f183debf66b47b6e24cc4def05b9196  ./test-installer.sh
 8d2f8b23f78c60e887768876ce4f4716c9aa6a5ed3f49247a39896d0feaba81f  ./tests/check-dependencies.sh
-2d4e57b185bf1e376ee909bf6bc85e7680dc1b9137a5a21398d0c3f18ddaba2c  ./tests/e2e/rails-postgres.sh
+ce5a95f59c7cdc5ab28b1020bdcde3c9c845da87a103cb89bef0435209f63198  ./tests/e2e/rails-postgres.sh
 1b4d7ebdd5ffc2ffc1a0bcc1e481fbbfdfaf664da056e96f38fbb27af616c6ff  ./tests/test-release-package.sh
 3631520f5c33cd496fb94b028ae6d29a9de7999ae75f62e5bc20ff3c7bb87590  ./gitwo/test-rails-standard.sh
