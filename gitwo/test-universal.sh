@@ -31,6 +31,18 @@ for project in alpha beta; do
   [[ "$(ruby -ryaml -e 'puts YAML.load_file("gitwo.yml").dig("database", "bootstrap")')" == schema ]]
   gitwo config validate >/dev/null
   gitwo new feature ENG-42 --title "Fix $project" --no-setup >/dev/null 2>/dev/null
+  # The no-provider fallback must not be treated as an explicit --offline on resume.
+  numbered="$(gitwo new feature ENG-42 --instance 1 --no-setup)"
+  [[ "$(basename "$numbered")" == eng-42-feature-1 ]]
+  [[ "$(gitwo new feature ENG-42 --instance 1 --resume --no-setup)" == "$numbered" ]]
+  if gitwo new feature ENG-42 --instance 1 --resume --offline --no-setup > "$tmp/invalid-resume.out" 2> "$tmp/invalid-resume.err"; then
+    echo 'Explicit --offline unexpectedly accepted with --resume' >&2; exit 1
+  fi
+  grep -Fq -- '--resume does not accept --title or --offline' "$tmp/invalid-resume.err"
+  if gitwo new feature ENG-42 --instance 1 --resume --title "No" --no-setup > "$tmp/invalid-title.out" 2> "$tmp/invalid-title.err"; then
+    echo 'Explicit --title unexpectedly accepted with --resume' >&2; exit 1
+  fi
+  grep -Fq -- '--resume does not accept --title or --offline' "$tmp/invalid-title.err"
   gitwo new develop --no-setup >/dev/null 2>/dev/null
   [[ -d "$tmp/work/.gitwo-workspaces/$project/eng-42-feature" ]]
   [[ -d "$tmp/work/.gitwo-workspaces/$project/develop-1" ]]
