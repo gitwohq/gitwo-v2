@@ -10,7 +10,8 @@ Gitwo - named Rails workspaces with optional issue tracker integration
 Usage: gitwo <command> [arguments] [options]
 
 Workspace:
-  new TYPE ISSUE [OPTIONS]       Create a numbered issue worktree (seed by default)
+  new feature [NAME] [OPTIONS]   Create a named isolated Rails workspace (no ticket needed)
+  new TYPE ISSUE [OPTIONS]       Create from Jira, Linear or GitHub issue
   new develop [OPTIONS]          Create develop-1, develop-2,... without an issue tracker
   workspace create ...           Preferred alias for gitwo new (uses same lifecycle)
   workspace enter [WORKSPACE]    Enter a workspace (alias for checkout)
