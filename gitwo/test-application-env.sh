@@ -48,6 +48,18 @@ gitwo_ok() { printf '[OK] %s\n' "$*" >&2; }
 gitwo_die() { printf '[ERROR] %s\n' "$*" >&2; exit 1; }
 source "$here/application-env.sh"
 
+# Detect file names and ownership without opening their secret contents.
+ruby "$here/detect.rb" "$source_root" --json > "$tmp/inventory.json"
+ruby -rjson -e '
+  files = JSON.parse(File.read(ARGV.fetch(0))).dig("detected", "application_env", "value")
+  actual = files.to_h { |entry| [entry.fetch("path"), entry.fetch("ownership")] }
+  abort actual.inspect unless actual.fetch(".env") == "ignored" &&
+    actual.fetch(".env.test") == "tracked" &&
+    actual.fetch(".env.test.local") == "ignored" &&
+    actual.fetch(".envrc") == "ignored" &&
+    actual.fetch(".env.local") == "symlink"
+' "$tmp/inventory.json"
+
 gitwo_application_env_copy_ignored "$source_root" "$target_root"
 for file in .env .env.development .env.development.local .env.test.local .envrc \
   config/master.key config/credentials/development.key config/credentials/test.key; do
