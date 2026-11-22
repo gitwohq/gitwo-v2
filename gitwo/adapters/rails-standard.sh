@@ -16,7 +16,9 @@ gitwo_adapter_prepare_database_config() {
   [[ ! -L config/database.yml ]] || gitwo_die 'Refusing symlinked config/database.yml'
   if [[ -n "${GITWO_SOURCE:-}" ]] &&
      ! git -C "$GITWO_SOURCE" ls-files --error-unmatch -- config/database.yml >/dev/null 2>&1 &&
-     git -C "$GITWO_SOURCE" check-ignore -q -- config/database.yml; then
+     git -C "$GITWO_SOURCE" check-ignore -q -- config/database.yml &&
+     ! git -C "$PWD" ls-files --error-unmatch -- config/database.yml >/dev/null 2>&1 &&
+     git -C "$PWD" check-ignore -q -- config/database.yml; then
     if [[ ! -e config/database.yml ]]; then
       [[ -d config && ! -L config ]] || gitwo_die 'Unsafe workspace config directory'
       (umask 077; set -C; cat > config/database.yml <<YAML
