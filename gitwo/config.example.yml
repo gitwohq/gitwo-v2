@@ -1,4 +1,5 @@
-# Copy into your repository as gitwo.yml, or run gitwo init.
+# Team mode: commit as gitwo.yml in the repository via gitwo init --scope=team.
+# Local mode (default): keep the YAML outside Git via gitwo init --scope=local.
 # Never place API keys or passwords in this file.
 version: 1
 project:
