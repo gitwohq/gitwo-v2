@@ -63,6 +63,29 @@ The application is not rewritten as part of init.
 
 `issues.provider: none` accepts issue-style keys (e.g. `ENG-42`) without API calls; `gitwo new develop` creates sequential standalone experiment worktrees.
 
+## Database readiness and developer environments
+
+A fully provisioned workspace is ready only after Gitwo verifies separate,
+reachable development and test PostgreSQL databases **and** live Rails
+ActiveRecord connections. `gitwo new --no-setup` reports an unprovisioned
+worktree and does not claim database readiness.
+
+`gitwo detect --json` reports whether `config/database.yml` is tracked,
+ignored, absent, or unsafe. With an **ignored** local Rails config, Gitwo can
+copy and safely specialize the file for each workspace, derive a missing test
+section from development, or generate a minimal workspace-only configuration
+if the ignored source file is absent. Tracked or unsupported custom configs are
+never modified without an explicit, reviewed integration.
+
+Developer Compose variants (for example `compose.local.yml`,
+`docker-compose.dev.yml`) and Dev Container definitions are discovered
+read-only. They are not automatically executed or attached. Gitwo's managed
+`services.backend: compose` remains a separately owned, isolated PostgreSQL
+and Redis stack; running a project's existing Compose or Dev Container setup
+is not yet supported.
+
+See [workspace activation](../docs/workspace-activation.md).
+
 ## Safety and compatibility
 
 Do not put API tokens in `gitwo.yml`. Credentials and project state are separate. Gitwo does not overwrite existing databases or adopt unregistered ones without confirmation. Destructive actions require explicit flags and verification.
