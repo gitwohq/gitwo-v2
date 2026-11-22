@@ -94,6 +94,10 @@ _gitwo_redis_is_owned() {
 gitwo_redis_start() {
   local path="$1" mode="$2" port dir pidfile i
   [[ "$mode" == development || "$mode" == test ]] || gitwo_die 'Redis mode must be development/test'
+  if [[ "$GITWO_SERVICES_BACKEND" == compose ]]; then
+    gitwo_compose_up "$path"
+    return 0
+  fi
   gitwo_need redis-server; gitwo_need redis-cli
   gitwo_runtime_load "$path"
   port="$(_gitwo_redis_port "$mode")"
@@ -118,6 +122,10 @@ gitwo_redis_start() {
 
 gitwo_redis_stop() {
   local path="$1" mode="$2" port
+  if [[ "$GITWO_SERVICES_BACKEND" == compose ]]; then
+    gitwo_compose_down "$path"
+    return 0
+  fi
   if ! gitwo_runtime_existing_load "$path"; then
     gitwo_log "Redis $mode: no allocated ports"
     return 0

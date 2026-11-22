@@ -50,6 +50,7 @@ case "$what" in
     chmod 600 "$log_dir/puma.log"
     name="$(gitwo_web_name "$target")"
     if [[ "${GITWO_PROXY:-portless}" == portless ]]; then
+      [[ ! -e "$GITWO_STATE/runtime/$(basename "$target").portless-alias" ]] || gitwo_die 'Native Portless alias registered. Use bin/rails server or unregister the workspace proxy before gitwo up.'
       gitwo_need portless
       node_major="$(node -p 'parseInt(process.versions.node.split(".")[0], 10)')"
       [[ "$node_major" -ge 24 ]] || gitwo_die "Portless requires Node.js >=24 (current: $(node -v)); set GITWO_PROXY=none for direct mode"

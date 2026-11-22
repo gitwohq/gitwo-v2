@@ -106,6 +106,19 @@ git add config/database.yml
 git commit -qm 'Enable native Gitwo Rails database isolation'
 git push -q origin main
 
+# Use the generated private Compose port/credential when the backend is Compose.
+fixture_psql() {
+  local slug="$1"; shift
+  if [[ "${GITWO_SERVICES_BACKEND:-native}" == compose ]]; then
+    local dir
+    dir="$(find "$HOME/.local/state/gitwo/projects" -path "*/runtime/${slug}/compose" -type d -print -quit)"
+    [[ -n "$dir" && -f "$dir/pg.port" && -f "$dir/pg.password" ]] || { echo 'Missing Compose test DB metadata' >&2; return 1; }
+    PGHOST=127.0.0.1 PGPORT="$(cat "$dir/pg.port")" PGPASSWORD="$(cat "$dir/pg.password")" psql "$@"
+  else
+    psql "$@"
+  fi
+}
+
 # Exercise schema load, seed once, and isolated test DB creation.
 first="$($cli new develop --seed)"
 [[ "$(basename "$first")" == 'develop-1' ]]
@@ -194,7 +207,7 @@ fi
 grep -q 'Both Minitest and RSpec detected' "$work/test-auto.err"
 "$cli" status develop-1 --json > "$work/status-1.json"
 ruby -rjson -e 'x=JSON.parse(File.read(ARGV.fetch(0))); abort x.inspect unless x["data_source"] == "seeded"' "$work/status-1.json"
-[[ "$(psql -d gitwo_fixture_develop_1_development -Atqc "SELECT COUNT(*) FROM widgets WHERE name='gitwo-e2e-seeded'")" == 1 ]]
+[[ "$(fixture_psql develop-1 -d gitwo_fixture_develop_1_development -Atqc "SELECT COUNT(*) FROM widgets WHERE name='gitwo-e2e-seeded'")" == 1 ]]
 
 archive="$($cli dump create develop-1 --name=e2e-snapshot)"
 [[ -s "$archive" ]]
@@ -212,7 +225,7 @@ bin/rails runner 'abort unless ActiveRecord::Base.connection_db_config.database 
 cd "$app"
 eval "$(direnv export bash)"
 [[ "${DATABASE_URL:-}" == "$fixture_database_url" ]]
-[[ "$(psql -d gitwo_fixture_develop_2_development -Atqc "SELECT COUNT(*) FROM widgets WHERE name='gitwo-e2e-seeded'")" == 1 ]]
+[[ "$(fixture_psql develop-2 -d gitwo_fixture_develop_2_development -Atqc "SELECT COUNT(*) FROM widgets WHERE name='gitwo-e2e-seeded'")" == 1 ]]
 
 # Running two workspaces must never change their permanent source checkout.
 [[ "$(git -C "$app" branch --show-current)" == main ]]
@@ -252,5 +265,35 @@ done
 [[ "$healthy" == yes ]] || { echo 'Rails did not become healthy' >&2; cat "$work/server.log" >&2; exit 1; }
 "$cli" status develop-1 --check-http > "$work/health-status.log"
 "$cli" down develop-1
+wait "$server_pid" >/dev/null 2>&1 || true
+server_pid=''
+# Verify normal Rails server with Gitwo-owned Portless static HTTPS route.
+if [[ "$GITWO_PROXY" == portless ]]; then
+  "$cli" workspace proxy register develop-1
+  "$cli" workspace proxy status develop-1 > "$work/proxy-status.log"
+  (cd "$first"; direnv exec "$first" bin/rails server -b 127.0.0.1) > "$work/native-server.log" 2>&1 &
+  server_pid="$!"
+  native_ready=no
+  url="$("$cli" open develop-1 --print)"
+  for ((attempt=0;attempt<120;attempt++)); do
+    if curl --fail --silent --max-time 2 --cacert "$HOME/.portless/ca.pem" "$url/" | grep -qx 'gitwo-e2e-ok'; then
+      native_ready=yes
+      break
+    fi
+    if ! kill -0 "$server_pid" 2>/dev/null; then
+      cat "$work/native-server.log" >&2
+      exit 1
+    fi
+    sleep 1
+  done
+  [[ "$native_ready" == yes ]] || { cat "$work/native-server.log" >&2; exit 1; }
+  "$cli" down develop-1
+  wait "$server_pid" >/dev/null 2>&1 || true
+  server_pid=''
+  "$cli" workspace proxy unregister develop-1
+fi
+if [[ "${GITWO_SERVICES_BACKEND:-native}" == compose ]]; then
+  "$cli" services status develop-1 > "$work/compose-status.log"
+fi
 "$cli" remove develop-2 --dry-run > "$work/remove-dry-run.log" 2>&1 || true
 printf '[PASS] real Rails+PostgreSQL+Redis E2E: two worktrees, native RSpec/Minitest, direnv isolation, seeds, dump/restore, Puma, HTTP, down\n'

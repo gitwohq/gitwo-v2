@@ -51,6 +51,7 @@ gitwo() {
     up|run) required_script=run.sh ;;
     down|logs|remove|open|env|dump|clean|repair) required_script="$action.sh" ;;
     redis) required_script=redis.sh ;;
+    services) required_script=services.sh ;;
     init) required_script=onboard.rb ;;
     detect) required_script=onboard.rb ;;
     workspace) required_script=workspace-env.sh ;;
@@ -160,6 +161,9 @@ gitwo() {
     redis)
       "$GITWO_LOCAL_DIR/redis.sh" "$@"
       ;;
+    services)
+      "$GITWO_LOCAL_DIR/services.sh" "$@"
+      ;;
     init)
       # Preserve the v4.19 DB adoption command for existing local workspaces.
       local is_legacy=no
@@ -180,8 +184,9 @@ gitwo() {
         create) gitwo new "$@" ;;
         enter|checkout) gitwo checkout "$@" ;;
         env) "$GITWO_LOCAL_DIR/workspace-env.sh" "$@" ;;
+        proxy) "$GITWO_LOCAL_DIR/proxy.sh" "$@" ;;
         adopt) "$GITWO_LOCAL_DIR/init.sh" "$@" ;;
-        *) print -u2 -- 'Usage: gitwo workspace <create|enter|env|adopt> ...'; return 2 ;;
+        *) print -u2 -- 'Usage: gitwo workspace <create|enter|env|proxy|adopt> ...'; return 2 ;;
       esac
       ;;
     setup|run)

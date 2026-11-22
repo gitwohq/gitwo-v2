@@ -15,6 +15,7 @@ class GitwoOnboard
   TRACKERS = %w[jira linear github none].freeze
   BOOTSTRAPS = %w[schema seeds].freeze
   MODES = %w[portless none].freeze
+  BACKENDS = %w[native compose].freeze
 
   def initialize(action, argv)
     @action = action
@@ -86,6 +87,7 @@ class GitwoOnboard
       if %w[jira linear].include?(suggested.dig('issues', 'provider'))
         suggested['issues']['credential'] = ask('Credential profile (letters, digits, - and _)', 'default')
       end
+      suggested['services']['backend'] = choose('PostgreSQL/Redis service backend (Gitwo-managed Compose)', BACKENDS, 'native')
       suggested['database']['bootstrap'] = choose('New database bootstrap (seeds may have side effects)', BOOTSTRAPS, 'schema')
       suggested['runtime']['proxy'] = choose('HTTP proxy', MODES, suggested.dig('runtime', 'proxy'))
       case suggested.dig('issues', 'provider')

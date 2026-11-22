@@ -63,6 +63,22 @@ Read the [dependency inventory](docs/dependencies.md),
 [security policy](SECURITY.md), [security review](docs/release-security-review.md),
 and [release notes](README-RELEASE.md). License: [MIT](LICENSE).
 
+## Service backends
+
+Use `gitwo detect --json` to inspect application Compose file presence. `gitwo init`
+lets you choose `services.backend: native` (default) or `compose`. Native runs
+local PostgreSQL/Redis processes. Compose creates a **separate Gitwo-owned**
+Compose project for each workspace (PostgreSQL 16 and two Redis 7 containers).
+No application Compose file is executed or overwritten. PostgreSQL uses a named
+volume, and `gitwo services down` preserves it. Exposed ports bind only to loopback.
+Docker Compose V2 is required only for the Compose backend. The host Rails process
+still needs environment-specific DB/Redis configuration; Compose alone does not
+choose development versus test.
+
+`gitwo services up|status|down [WORKSPACE]` manages the selected workspace.
+For native Rails HTTPS: `gitwo workspace proxy register [WORKSPACE]`, then run
+`bin/rails server`; `gitwo workspace proxy unregister` removes only the owned alias.
+
 ## Workspace activation
 
 Prefer `gitwo workspace create feature ENG-123`. With [direnv](https://direnv.net/)

@@ -7,10 +7,10 @@ if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
   exit 0
 fi
 [[ $# -eq 0 || ( $# -eq 1 && "$1" == --deps ) ]] || { echo 'Usage: gitwo doctor [--deps]' >&2; exit 2; }
-required=( _common.sh _runtime.sh _lifecycle.sh _prepare.sh _dumps.sh _ui.sh _testing.sh
-  config.rb config.sh help.sh onboard.rb project.rb detect.rb detect.sh direnv.sh workspace-env.sh rails-config.rb
+required=( _common.sh _runtime.sh _services.sh _lifecycle.sh _prepare.sh _dumps.sh _ui.sh _testing.sh
+  config.rb config.sh help.sh onboard.rb project.rb detect.rb detect.sh direnv.sh workspace-env.sh rails-config.rb proxy.sh
   new.sh checkout.sh setup.sh run.sh down.sh logs.sh remove.sh init.sh redis.sh
-  open.sh env.sh dump.sh clean.sh repair.sh list.sh baseline.sh
+  open.sh env.sh dump.sh clean.sh repair.sh services.sh test-services.sh list.sh baseline.sh
   provider.rb provider-env.sh issue.rb jira-env.sh jira-init.sh jira-test.sh
   _adapter.sh adapters/rails-standard.sh adapters/rails-webpack.sh test-testing.sh test-rails-config.sh shell.zsh VERSION )
 fail=0
@@ -37,7 +37,14 @@ else
 fi
 if [[ "${1:-}" == --deps ]]; then
   missing=0
-  for binary in git ruby mise node psql createdb pg_dump pg_restore redis-server redis-cli lsof; do
+  binaries=(git ruby mise node psql createdb pg_dump pg_restore lsof)
+  if [[ "${GITWO_SERVICES_BACKEND:-native}" == compose ]]; then
+    binaries+=(docker)
+    docker compose version >/dev/null 2>&1 || { echo '[MISSING] Docker Compose V2' >&2; missing=1; }
+  else
+    binaries+=(redis-server redis-cli)
+  fi
+  for binary in "${binaries[@]}"; do
     if command -v "$binary" >/dev/null 2>&1; then
       printf '[OK] %s\n' "$binary"
     else

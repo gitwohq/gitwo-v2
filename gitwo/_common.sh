@@ -53,7 +53,7 @@ gitwo_config_load() {
   [[ -n "$settings" ]] || return 0
   while IFS='=' read -r key value; do
     case "$key" in
-      GITWO_ADAPTER|GITWO_PROJECT_SOURCE|GITWO_BASE_BRANCH|GITWO_DUMPS_DIR|GITWO_DB_PREFIX|GITWO_FEATURE_BASE|GITWO_HOTFIX_BASE|GITWO_DB_HOST|GITWO_DB_PORT|GITWO_DB_USER|GITWO_PROXY|GITWO_DOMAIN|GITWO_GIT_WORKFLOW|GITWO_ISSUE_PROVIDER|GITWO_ISSUE_URL|GITWO_CREDENTIAL_PROFILE|GITWO_FRAMEWORK|GITWO_HAS_SIDEKIQ|GITWO_HAS_REDIS|GITWO_BOOTSTRAP) ;;
+      GITWO_ADAPTER|GITWO_PROJECT_SOURCE|GITWO_BASE_BRANCH|GITWO_DUMPS_DIR|GITWO_DB_PREFIX|GITWO_FEATURE_BASE|GITWO_HOTFIX_BASE|GITWO_DB_HOST|GITWO_DB_PORT|GITWO_DB_USER|GITWO_PROXY|GITWO_DOMAIN|GITWO_GIT_WORKFLOW|GITWO_ISSUE_PROVIDER|GITWO_ISSUE_URL|GITWO_CREDENTIAL_PROFILE|GITWO_FRAMEWORK|GITWO_HAS_SIDEKIQ|GITWO_HAS_REDIS|GITWO_BOOTSTRAP|GITWO_SERVICES_BACKEND) ;;
       *) gitwo_die "Invalid config key: $key" ;;
     esac
     if [[ -z "${!key+x}" ]]; then
@@ -72,6 +72,9 @@ GITWO_ISSUE_PROVIDER="${GITWO_ISSUE_PROVIDER:-none}"
 export GITWO_ISSUE_PROVIDER GITWO_ISSUE_URL GITWO_CREDENTIAL_PROFILE
 GITWO_BOOTSTRAP="${GITWO_BOOTSTRAP:-schema}"
 GITWO_PROXY="${GITWO_PROXY:-none}"
+GITWO_SERVICES_BACKEND="${GITWO_SERVICES_BACKEND:-native}"
+case "$GITWO_SERVICES_BACKEND" in native|compose) ;; *) gitwo_die "Unsupported services backend: $GITWO_SERVICES_BACKEND" ;; esac
+export GITWO_SERVICES_BACKEND
 GITWO_ADAPTER="${GITWO_ADAPTER:-rails-standard}"
 GITWO_PROJECT_SOURCE="${GITWO_PROJECT_SOURCE:-$(basename "$GITWO_SOURCE")}"
 GITWO_BASE_BRANCH="${GITWO_BASE_BRANCH:-$(git -C "$GITWO_SOURCE" branch --show-current)}"
@@ -405,6 +408,10 @@ gitwo_write_state() {
 gitwo_db_settings() {
   export GITWO_DB_HOST="${GITWO_DB_HOST:-localhost}" GITWO_DB_PORT="${GITWO_DB_PORT:-5432}"
   export GITWO_DB_USER="${GITWO_DB_USER:-${USER:-postgres}}"
+  if [[ "$GITWO_SERVICES_BACKEND" == compose ]]; then
+    [[ -n "${GITWO_PATH:-}" ]] || gitwo_die "Compose backend requires selected workspace identity"
+    gitwo_compose_apply "$GITWO_PATH"
+  fi
   case "$GITWO_DB_HOST" in localhost|127.0.0.1) ;; *) gitwo_die "Refusing non-local PostgreSQL host: $GITWO_DB_HOST" ;; esac
   [[ "$GITWO_DB_PORT" =~ ^[0-9]{2,5}$ ]] || gitwo_die 'Invalid local DB port'
 }
@@ -430,3 +437,6 @@ gitwo_ruby_version() {
   GITWO_RUBY_VERSION="$(tr -d '[:space:]' < "$1/.ruby-version")"
   [[ "$GITWO_RUBY_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || gitwo_die "Unexpected Ruby version: $GITWO_RUBY_VERSION"
 }
+
+# Workspace service backend is a separate layer from Rails and worktree state.
+source "$GITWO_DIR/_services.sh"

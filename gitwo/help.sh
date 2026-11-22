@@ -16,6 +16,9 @@ Workspace:
   workspace enter [WORKSPACE]    Enter a workspace (alias for checkout)
   workspace env init [WORKSPACE] Verify native Rails DB isolation and generate direnv .envrc
   workspace env verify [...]     Check native Rails DB without starting services
+  workspace proxy register [...] Register a static HTTPS route for native bin/rails server
+  workspace proxy unregister [...] Remove only a Gitwo-owned HTTPS route
+  workspace proxy status [...]   Read-only status of native Rails HTTPS route
   workspace env integrate ...    Preview or explicitly patch simple database.yml
   checkout [WORKSPACE]           Change shell directory to worktree (alias: co, switch)
   base                           Change to the permanent develop worktree
@@ -32,6 +35,7 @@ Tools:
   init [OPTIONS]                Detect project and configure Gitwo
   detect [--json]               Inspect repo/framework/workflow without changes
   workspace adopt [WORKSPACE]   Inspect/adopt an existing database
+  services <up|down|status> ... Control per-workspace native/Compose dependencies
   redis MODE [WORKSPACE]        Start/stop/check workspace Redis
   open [WORKSPACE] [--print]     Open browser or print workspace URL
   env [WORKSPACE] [--json]      Show allowlisted computed runtime settings
