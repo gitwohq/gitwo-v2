@@ -46,6 +46,16 @@ module GitwoDetection
     end
   end
 
+  def database_config_ownership(repo)
+    relative = 'config/database.yml'
+    path = File.join(repo, relative)
+    return 'symlink' if File.symlink?(path)
+    return 'tracked' if git(repo, 'ls-files', '--error-unmatch', '--', relative)
+    ignored = !!git(repo, 'check-ignore', '--', relative)
+    return ignored ? 'ignored' : 'untracked' if File.file?(path)
+    ignored ? 'ignored_missing' : 'missing'
+  end
+
   def detect(repo)
     repo = File.realpath(repo)
     root = git(repo, 'rev-parse', '--show-toplevel')
@@ -155,6 +165,7 @@ module GitwoDetection
       'detected' => {
         'framework' => rails,
         'database' => observed(postgres ? 'postgresql' : 'unknown', postgres ? 'Gemfile.lock / config/database.yml' : 'no PostgreSQL markers', postgres ? 'high' : 'low'),
+        'database_config' => observed(database_config_ownership(repo), 'Git tracked/ignored filesystem status, without reading database values', 'high'),
         'sidekiq' => observed(!!sidekiq, sidekiq ? 'Gemfile.lock / config/sidekiq.yml' : 'not detected', sidekiq ? 'high' : 'low'),
         'redis' => observed(!!redis, redis ? 'Gemfile.lock / Sidekiq / config' : 'not detected', redis ? 'medium' : 'low'),
         'compose_files' => observed(compose_files, compose_files.empty? ? 'no Compose file at repository root' : 'repository root filename inspection only', compose_files.empty? ? 'low' : 'high'),
