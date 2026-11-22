@@ -58,6 +58,43 @@ grep -q 'postgres:16' "$root/compose.yml"
 grep -q 'redis:7' "$root/compose.yml"
 ! grep -q 'dangerous-app-service' "$tmp/docker.log"
 ! grep -q "$tmp/app/compose.yaml" "$tmp/docker.log"
+# Repeated startup must reuse the same credentials and ports.
+original_env="$(cat "$root/compose.env")"
+original_password="$(cat "$root/pg.password")"
+bash "$here/services.sh" up develop-1
+[[ "$(cat "$root/compose.env")" == "$original_env" ]]
+[[ "$(cat "$root/pg.password")" == "$original_password" ]]
+
+# Changing a service user would invalidate a persisted PostgreSQL volume.
+if GITWO_DB_USER=unexpected_user bash "$here/services.sh" up develop-1 > "$tmp/change.out" 2> "$tmp/change.err"; then
+  echo 'Expected changed Compose settings to be rejected' >&2
+  exit 1
+fi
+grep -Fq 'refusing to rewrite persisted PostgreSQL credentials or ports' "$tmp/change.err"
+[[ "$(cat "$root/compose.env")" == "$original_env" ]]
+
+# A malicious or accidental symlink must never be followed or overwritten.
+printf 'foreign-file-must-survive\n' > "$tmp/foreign.env"
+mv "$root/compose.env" "$root/compose.env.saved"
+ln -s "$tmp/foreign.env" "$root/compose.env"
+if bash "$here/services.sh" up develop-1 > "$tmp/symlink.out" 2> "$tmp/symlink.err"; then
+  echo 'Expected symlinked Compose environment to be rejected' >&2
+  exit 1
+fi
+grep -Fq 'Unsafe managed Compose environment file' "$tmp/symlink.err"
+[[ "$(cat "$tmp/foreign.env")" == foreign-file-must-survive ]]
+rm "$root/compose.env"
+mv "$root/compose.env.saved" "$root/compose.env"
+
+# A down operation must address only the selected Compose project.
+project_first="$(awk '$1=="compose" && $2=="--project-name" && / up -d --wait postgres redis-dev redis-test$/ { print $3; exit }' "$tmp/docker.log")"
+project_second="$(awk '$1=="compose" && $2=="--project-name" && / up -d --wait postgres redis-dev redis-test$/ { value=$3 } END { print value }' "$tmp/docker.log")"
+[[ -n "$project_first" && -n "$project_second" && "$project_first" != "$project_second" ]]
 bash "$here/services.sh" down develop-1
+[[ "$(awk '$1=="compose" && $2=="--project-name" && $NF=="down" { print $3 }' "$tmp/docker.log")" == "$project_first" ]]
+bash "$here/services.sh" status develop-2
+bash "$here/services.sh" down develop-2
+[[ "$(awk '$1=="compose" && $2=="--project-name" && $NF=="down" { print $3 }' "$tmp/docker.log")" == "$(printf '%s\n%s' "$project_first" "$project_second")" ]]
 ! grep -q -- 'down -v' "$tmp/docker.log"
-printf '[PASS] Compose detection, safe file isolation, unique ports and volume-preserving down\n'
+[[ -f "$root/pg.password" && -f "$root/pg.port" ]]
+printf '[PASS] Compose isolation, immutable credentials, symlink safety and scoped lifecycle\n'
