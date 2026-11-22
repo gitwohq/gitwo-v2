@@ -74,6 +74,7 @@ source_root_ignored_before="$(git -C "$source_root" status --porcelain --untrack
 # Do not traverse a symlinked credentials directory when copying private keys.
 second="$tmp/worktree-second"
 git -C "$source_root" worktree add -q -b feature/env-preservation-2 "$second"
+mkdir -p "$second/config"
 rm -rf "$second/config/credentials"
 ln -s "$tmp" "$second/config/credentials"
 if (gitwo_application_env_copy_ignored "$source_root" "$second") >"$tmp/unsafe.log" 2>&1; then
