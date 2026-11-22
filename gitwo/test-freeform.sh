@@ -20,8 +20,15 @@ chmod +x "$tmp/bin/gitwo"
 export PATH="$tmp/bin:$PATH"
 cd "$tmp/project"
 
-# Local YAML must initialize without origin and without changing tracked files.
+# Zero-configuration creation is possible before running gitwo init at all.
 [[ -z "$(git remote)" ]]
+zero="$(gitwo new feature 'Zero config' --no-setup)"
+[[ "$(basename "$zero")" == zero-config-1 ]]
+[[ "$(git -C "$zero" branch --show-current)" == feature/zero-config-1 ]]
+[[ ! -e gitwo.yml ]]
+[[ -z "$(git status --porcelain --untracked-files=all)" ]]
+
+# Optional personal YAML initialization must work without origin.
 gitwo init --scope=local --yes > "$tmp/init.log"
 [[ -z "$(git status --porcelain --untracked-files=all)" ]]
 [[ ! -e gitwo.yml ]]
