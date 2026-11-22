@@ -67,7 +67,7 @@ Usage: gitwo new feature [NAME|ISSUE] [OPTIONS]
   --instance N            Pick an explicit sequential suffix (develop starts at 1)
   --resume                Resume matching existing worktree
   --preview               Show branch/path without creating them
-  --seed | --no-seed      Set default data mode (seed is default)
+  --seed | --no-seed      Seed or skip seeds (defaults to schema-only unless configured)
   --dump=PATH             Restore a pg_dump archive under the configured dumps folder, without seeds
   --db=schema|baseline    Data bootstrap source
   --rebuild-db            Explicit managed DB rebuild with confirmation
