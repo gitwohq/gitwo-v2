@@ -449,8 +449,12 @@ generated_workspace="$("$cli" new feature "Generated database fixture" 2>"$work/
 }
 [[ ! -e "$app/config/database.yml" ]]
 grep -Fq 'Created isolated, ignored workspace database.yml' "$work/generated-db-setup.log"
-grep -Fq 'ENV.fetch("GITWO_DB_TEST", "gitwo_fixture_generated_database_fixture_1_test")' "$generated_workspace/config/database.yml"
-"$cli" status generated-database-fixture-1 --json > "$work/generated-status.json"
+# Long feature names are intentionally shortened and hashed for safe DB names.
+# Derive the expected test DB from Gitwo's actual workspace slug.
+generated_name="$(basename "$generated_workspace")"
+generated_database_slug="${generated_name//-/_}"
+grep -Fq "ENV.fetch(\"GITWO_DB_TEST\", \"gitwo_fixture_${generated_database_slug}_test\")" "$generated_workspace/config/database.yml"
+"$cli" status "$generated_name" --json > "$work/generated-status.json"
 ruby -rjson -e 'x=JSON.parse(File.read(ARGV.fetch(0))); abort x.inspect unless x["test_db_check"]=="connected" && x["bootstrap"]=="ready"' "$work/generated-status.json"
 
 printf '[PASS] Rails+PostgreSQL+Redis E2E: verified dev/test DBs, ignored config generation, worktrees, native tests, direnv, seeds, dumps, Puma, Compose\n'
