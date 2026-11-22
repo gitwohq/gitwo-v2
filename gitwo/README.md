@@ -23,7 +23,8 @@ source "$HOME/.local/share/gitwo/shell.zsh"
 cd /path/to/rails-app
 
 gitwo detect
-gitwo init                 # Guided YAML project configuration
+gitwo init                 # Guided personal config outside Git (default)
+gitwo init --scope=team    # Explicit, reviewable team YAML in the repo
 gitwo init --yes           # Safe noninteractive defaults, schema only
 gitwo init --dry-run       # No changes
 
@@ -32,7 +33,7 @@ gitwo new develop --no-setup
 gitwo new feature ENG-42 --title "Fix API" --no-setup
 ```
 
-`gitwo.yml` is stored in the permanent Git checkout. It holds nonsecret, versioned settings; you may commit it after review. On startup Gitwo discovers the canonical primary worktree from the current checkout, then reads the primary checkout's `gitwo.yml`. Set `GITWO_PROJECT_ROOT` for commands executed outside a Git directory.
+Local YAML is stored outside the Git checkout under `~/.config/gitwo/projects/` by default; no repository files are modified. A team can explicitly commit `gitwo.yml` after `gitwo init --scope=team`. On startup Gitwo resolves the selected local/team scope and the canonical primary worktree. Set `GITWO_PROJECT_ROOT` outside a Git checkout. See [configuration scopes](../docs/configuration-scopes.md).
 
 Gitwo worktrees are created in `../.gitwo-workspaces/<source-checkout-name>/`. State is stored in `~/.local/state/gitwo/projects/<project-ID>/`; it is never written into the application repo. `--dump` archives go under the configured project workspaces directory's `dumps/` subfolder.
 
@@ -94,8 +95,8 @@ for `gitwo services up|down|status` and native Portless alias management.
 
 ## Shared team configuration
 
-The team commits `gitwo.yml` once. New developers only run `gitwo onboard`
-to check their local prerequisites, or `gitwo onboard --check` for CI-only
+The team commits `gitwo.yml` once. New developers run `gitwo onboard --scope=team`
+to check prerequisites, or `gitwo onboard --scope=team --check` for CI-only
 schema validation. No repeated `gitwo init` is needed after clone.
-`gitwo onboard --setup` is an explicit, confirmed schema-only workspace
+`gitwo onboard --scope=team --setup` is an explicit, confirmed schema-only workspace
 bootstrap without seeds. See [team onboarding](../docs/team-onboarding.md).
