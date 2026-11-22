@@ -6,7 +6,7 @@ source "$GITWO_DIR/_lifecycle.sh"
 source "$GITWO_DIR/_prepare.sh"
 source "$GITWO_DIR/_testing.sh"
 usage() { cat >&2 <<'USAGE'
-Usage: run.sh [ENG-5303-feature-1] <server|test|minitest|rspec|rails|console|sidekiq> [args...]
+Usage: run.sh [WORKSPACE|ENG-5303-feature-1] <server|test|minitest|rspec|rails|console|sidekiq> [args...]
   server    Start isolated Redis and Puma via Portless at https://<workspace>.<domain>.localhost
   test      Auto-select Minitest or RSpec (errors if both are configured)
   minitest  Run Rails Minitest with isolated test PostgreSQL and Redis
@@ -20,7 +20,10 @@ USAGE
 if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then usage; exit 0; fi
 [[ $# -ge 1 ]] || { usage; exit 2; }
 selector=''
-if [[ "${1:-}" =~ ^[A-Za-z][A-Za-z0-9]{1,14}-[0-9]+(-(feature|hotfix|bugfix))?(-[0-9]+)?$ || "${1:-}" =~ ^develop-[1-9][0-9]*$ ]]; then
+if [[ "${1:-}" =~ ^[A-Za-z][A-Za-z0-9]{1,14}-[0-9]+(-(feature|hotfix|bugfix))?(-[0-9]+)?$ ||
+      "${1:-}" =~ ^develop-[1-9][0-9]*$ ||
+      "${1:-}" =~ ^[a-z][a-z0-9]*(-[a-z0-9]+)*-[1-9][0-9]*$ ||
+      "${1:-}" == /* ]]; then
   selector="$1"; shift
 fi
 [[ $# -ge 1 ]] || { usage; exit 2; }
