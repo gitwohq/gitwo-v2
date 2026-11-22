@@ -312,10 +312,19 @@ if [[ "$setup" == yes ]]; then
   [[ "$rebuild_db" == yes ]] && args+=(--rebuild-db)
   gitwo_ui_section "02  Rails / setup"
   "$GITWO_DIR/setup.sh" "${args[@]}" >&2
-  # Activate native Rails commands only after checking BOTH development and test
-  # database configurations without a Gitwo command wrapper.
-  if ! "$GITWO_DIR/workspace-env.sh" init "$target" >&2; then
-    gitwo_warn 'Workspace created without native activation. From the primary checkout, preview: gitwo workspace env integrate --dry-run. Integrate and commit if suitable, then run gitwo workspace env init.'
+  # Existing .envrc is the application's contract, not ours to replace.
+  # Rails remains isolated through gitwo run even without native direnv setup.
+  if [[ -e "$target/.envrc" || -L "$target/.envrc" ]]; then
+    gitwo_log 'Existing application .envrc preserved. No Gitwo activation file generated.'
+    gitwo_log "Use: gitwo run $(basename "$target") rails <command> (isolated DB)"
+    gitwo_log 'Native bin/rails isolation has not been verified by Gitwo.'
+  elif [[ -e "$GITWO_SOURCE/.envrc" || -L "$GITWO_SOURCE/.envrc" ]]; then
+    gitwo_warn 'Application .envrc exists in the primary checkout but was not transferable. Not generating a replacement.'
+    gitwo_log "Use: gitwo run $(basename "$target") rails <command> (isolated DB)"
+  elif ! "$GITWO_DIR/workspace-env.sh" init "$target" >&2; then
+    gitwo_warn 'Rails workspace is ready through gitwo run, but native bin/rails isolation was not verified.'
+    gitwo_log "Use: gitwo run $(basename "$target") rails <command> (isolated DB)"
+    gitwo_log 'Optional native activation: gitwo workspace env integrate --dry-run'
   fi
 else
   gitwo_warn 'Rails setup skipped. Run setup.sh explicitly when ready.'

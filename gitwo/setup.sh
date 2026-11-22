@@ -91,15 +91,10 @@ fi
 gitwo_ui_meta "APP_HOST" "$(gitwo_app_host)"
 gitwo_ui_section "01  Configuration"
 
-# Copy only ignored, developer-owned files. Never copy database.yml from develop.
-for file in .env .env.local .env.development .env.development.local .env.test config/master.key config/credentials/development.key config/credentials/test.key; do
-  if [[ -f "$GITWO_SOURCE/$file" && ! -e "$file" ]] && git check-ignore -q "$file"; then
-    mkdir -p "$(dirname "$file")"
-    (umask 077; cp "$GITWO_SOURCE/$file" "$file")
-    gitwo_ok "Copied ignored local file $file"
-  fi
-done
-
+# Respect the app's existing dotenv, direnv and credentials layout.
+# The module copies only ignored local development/test artifacts.
+source "$GITWO_DIR/application-env.sh"
+gitwo_application_env_copy_ignored "$GITWO_SOURCE" "$target"
 
 gitwo_adapter_prepare_database_config
 

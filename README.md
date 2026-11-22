@@ -80,16 +80,21 @@ choose development versus test.
 For native Rails HTTPS: `gitwo workspace proxy register [WORKSPACE]`, then run
 `bin/rails server`; `gitwo workspace proxy unregister` removes only the owned alias.
 
-## Workspace activation
+## Application ENV and workspace activation
 
-Prefer `gitwo workspace create feature ENG-123`. With [direnv](https://direnv.net/)
-installed and allowed for the generated untracked `.envrc`, native Rails,
-RSpec and Minitest commands work in the selected worktree without `gitwo run`.
-Gitwo verifies separate development and test database configurations before
-creating the activation file. Conventional Rails configurations can be prepared
-with `gitwo workspace env integrate --dry-run` and explicitly updated with
-`--apply` after review. The `verify` command does not allocate ports or start Redis.
-See [workspace activation](docs/workspace-activation.md).
+`gitwo new feature improve-search` prepares an isolated Rails workspace without
+requiring Jira, GitHub Issues or a Git remote. Gitwo respects the application's
+existing dotenv, credentials and direnv files. Tracked files come from Git;
+ignored development/test files are copied without rewriting their contents.
+Existing `.envrc` is never replaced. No staging/production ENV is copied.
+See [application ENV compatibility](docs/application-env.md).
+
+Use `gitwo run improve-search-1 rails ...` for Rails commands with Gitwo's
+isolated database settings. Native `bin/rails` requires separately verified
+development/test isolation. If the application has no `.envrc`, Gitwo can
+generate an optional local direnv activation file after verification. It
+never changes tracked database configuration automatically. See
+[workspace activation](docs/workspace-activation.md).
 
 ## Release candidate preparation
 

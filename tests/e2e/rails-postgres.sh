@@ -334,8 +334,24 @@ fi
 cd "$app"
 git remote remove origin
 [[ -z "$(git remote)" ]]
-named="$("$cli" new feature "Improve search")"
+
+# Preserve existing app ENV conventions rather than generating a new layout.
+# Use the local Git exclude file to avoid changing tracked application files.
+printf '/.env\n/.env.development.local\n/.env.test.local\n/.envrc\n' >> .git/info/exclude
+printf 'APP_OWNED_ENV=preserved\n' > .env
+printf 'APP_DEVELOPMENT_LOCAL=1\n' > .env.development.local
+printf 'APP_TEST_LOCAL=1\n' > .env.test.local
+printf '# Existing app direnv contract\nexport APP_OWNED_DIRENV=yes\n' > .envrc
+named="$("$cli" new feature "Improve search" 2>"$work/named-setup.log")" || {
+  tail -100 "$work/named-setup.log" >&2
+  exit 1
+}
 [[ "$(basename "$named")" == improve-search-1 ]]
+for file in .env .env.development.local .env.test.local .envrc; do
+  cmp "$app/$file" "$named/$file"
+done
+grep -Fq 'Existing application .envrc preserved' "$work/named-setup.log"
+grep -Fq 'Use: gitwo run improve-search-1 rails' "$work/named-setup.log"
 [[ "$(git -C "$named" branch --show-current)" == feature/improve-search-1 ]]
 [[ "$(git -C "$app" branch --show-current)" == main ]]
 [[ -f "$named/.envrc" ]]

@@ -25,6 +25,27 @@ module GitwoDetection
     { 'value' => value, 'source' => source, 'confidence' => confidence }
   end
 
+  def application_env_inventory(repo)
+    # Report file presence and Git ownership only. Never parse ENV or read secrets.
+    dotenv = Dir.children(repo).grep(/\A\.env(?:\..+)?\z/).sort
+    candidates = dotenv + %w[.envrc config/master.key config/credentials/development.key config/credentials/test.key]
+    candidates.filter_map do |name|
+      path = File.join(repo, name)
+      next unless File.file?(path) || File.symlink?(path)
+
+      ownership = if File.symlink?(path)
+                    'symlink'
+                  elsif git(repo, 'ls-files', '--error-unmatch', '--', name)
+                    'tracked'
+                  elsif git(repo, 'check-ignore', '--', name)
+                    'ignored'
+                  else
+                    'untracked'
+                  end
+      { 'path' => name, 'ownership' => ownership }
+    end
+  end
+
   def detect(repo)
     repo = File.realpath(repo)
     root = git(repo, 'rev-parse', '--show-toplevel')
@@ -110,6 +131,7 @@ module GitwoDetection
         'sidekiq' => observed(!!sidekiq, sidekiq ? 'Gemfile.lock / config/sidekiq.yml' : 'not detected', sidekiq ? 'high' : 'low'),
         'redis' => observed(!!redis, redis ? 'Gemfile.lock / Sidekiq / config' : 'not detected', redis ? 'medium' : 'low'),
         'compose_files' => observed(compose_files, compose_files.empty? ? 'no Compose file at repository root' : 'repository root filename inspection only', compose_files.empty? ? 'low' : 'high'),
+        'application_env' => observed(application_env_inventory(repo), 'file presence and Git ownership only; no secrets read', 'high'),
         'seeds' => observed(seed_file, seed_file ? 'db/seeds.rb' : 'not detected', seed_file ? 'high' : 'low'),
         'ruby_version' => observed(ruby_version, ruby_version ? '.ruby-version' : 'not detected', ruby_version ? 'high' : 'low'),
         'git_provider' => observed(git_provider, remote.empty? ? 'no origin remote' : 'origin remote URL', remote.empty? ? 'low' : 'high'),
