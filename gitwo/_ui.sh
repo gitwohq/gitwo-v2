@@ -75,3 +75,10 @@ gitwo_ui_done() {
     printf '  %sLog:%s %s\n' "${C_MUTED:-}" "$C_RESET" "$GITWO_LOG_FILE" >&2
   fi
 }
+
+gitwo_ui_created() {
+  printf '\n%s[CREATED]%s %s\n' "$C_YELLOW" "$C_RESET" "$1" >&2
+  if [[ -n "$GITWO_LOG_FILE" ]]; then
+    printf '  %sLog:%s %s\n' "${C_MUTED:-}" "$C_RESET" "$GITWO_LOG_FILE" >&2
+  fi
+}
