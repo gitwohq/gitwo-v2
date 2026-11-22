@@ -68,8 +68,12 @@ verifies both Rails database targets, then creates an ignored local `.envrc`.
 `verify` requires pre-existing port allocations and does not start services,
 create files, or modify Gitwo-managed state. Both commands boot the trusted Rails
 application to inspect ActiveRecord; app initializers might have side effects.
-Existing `.envrc` files are left untouched. If a project already tracks an
-`.envrc`, review it and add the displayed `source_env` line yourself.
+Existing tracked and ignored `.envrc` files are preserved as application
+configuration, with no required `source_env` line. If one exists, `gitwo new`
+skips Gitwo's own direnv activation rather than replacing the app's rules.
+Use `gitwo run WORKSPACE rails ...` for a verified isolated Rails command.
+Native activation is optional and must be verified separately.
+See [application ENV compatibility](application-env.md).
 
 To inspect again without writing `.envrc` or allocating ports or starting Redis:
 
