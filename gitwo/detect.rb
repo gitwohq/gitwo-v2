@@ -94,10 +94,37 @@ module GitwoDetection
     postgres = gemfile.match?(/\bgem\s*['\"]pg['\"]/) || db_config.match?(/adapter:\s*postgresql/) || lock.match?(/^    pg \(/)
     sidekiq = gemfile.match?(/\bgem\s*['\"]sidekiq['\"]/) || lock.match?(/^    sidekiq \(/) || File.file?(File.join(repo, 'config/sidekiq.yml'))
     redis = sidekiq || gemfile.match?(/\bgem\s*['\"]redis['\"]/) || lock.match?(/^    redis \(/) || File.file?(File.join(repo, 'config/redis.yml'))
-    # Detect file presence only. Do not execute or trust an application Compose file.
-    compose_files = %w[compose.yaml compose.yml docker-compose.yaml docker-compose.yml].select do |filename|
+    # Inventory developer environments without parsing or executing untrusted
+    # Compose YAML, Dockerfiles, devcontainer.json commands, or credentials.
+    compose_pattern = /\A(?:docker-)?compose(?:[.-](?:override|dev|development|local))?\.ya?ml\z/
+    compose_files = Dir.children(repo).sort.select do |filename|
       path = File.join(repo, filename)
-      File.file?(path) && !File.symlink?(path)
+      compose_pattern.match?(filename) && File.file?(path) && !File.symlink?(path)
+    end
+
+    devcontainer_files = %w[.devcontainer.json .devcontainer/devcontainer.json].select do |relative|
+      path = File.join(repo, relative)
+      File.file?(path) && !File.symlink?(path) &&
+        !File.symlink?(File.dirname(path))
+    end
+    devcontainer_dir = File.join(repo, '.devcontainer')
+    if File.directory?(devcontainer_dir) && !File.symlink?(devcontainer_dir)
+      Dir.children(devcontainer_dir).sort.each do |profile|
+        directory = File.join(devcontainer_dir, profile)
+        next unless File.directory?(directory) && !File.symlink?(directory)
+        candidate = File.join(directory, 'devcontainer.json')
+        devcontainer_files << File.join('.devcontainer', profile, 'devcontainer.json') if
+          File.file?(candidate) && !File.symlink?(candidate)
+      end
+    end
+    devcontainer_compose_files = []
+    if File.directory?(devcontainer_dir) && !File.symlink?(devcontainer_dir)
+      Dir.children(devcontainer_dir).sort.each do |filename|
+        path = File.join(devcontainer_dir, filename)
+        if compose_pattern.match?(filename) && File.file?(path) && !File.symlink?(path)
+          devcontainer_compose_files << File.join('.devcontainer', filename)
+        end
+      end
     end
     seed_file = File.file?(File.join(repo, 'db/seeds.rb'))
     ruby_version = text(File.join(repo, '.ruby-version')).strip
@@ -131,6 +158,8 @@ module GitwoDetection
         'sidekiq' => observed(!!sidekiq, sidekiq ? 'Gemfile.lock / config/sidekiq.yml' : 'not detected', sidekiq ? 'high' : 'low'),
         'redis' => observed(!!redis, redis ? 'Gemfile.lock / Sidekiq / config' : 'not detected', redis ? 'medium' : 'low'),
         'compose_files' => observed(compose_files, compose_files.empty? ? 'no Compose file at repository root' : 'repository root filename inspection only', compose_files.empty? ? 'low' : 'high'),
+        'devcontainer_files' => observed(devcontainer_files, 'Dev Container definitions by filename only; no files executed', devcontainer_files.empty? ? 'low' : 'high'),
+        'devcontainer_compose_files' => observed(devcontainer_compose_files, 'Dev Container Compose filenames only; no files executed', devcontainer_compose_files.empty? ? 'low' : 'high'),
         'application_env' => observed(application_env_inventory(repo), 'file presence and Git ownership only; no secrets read', 'high'),
         'seeds' => observed(seed_file, seed_file ? 'db/seeds.rb' : 'not detected', seed_file ? 'high' : 'low'),
         'ruby_version' => observed(ruby_version, ruby_version ? '.ruby-version' : 'not detected', ruby_version ? 'high' : 'low'),
@@ -155,7 +184,9 @@ module GitwoDetection
         ('No origin tracking ref for proposed primary branch' if main_ref && !refs.include?(main_ref)),
         ('Rails is not detected: only Rails adapters are currently supported' unless rails_markers),
         ('PostgreSQL is not detected: Rails adapter setup requires PostgreSQL' unless postgres),
-        ('Compose file detected: Gitwo does not execute application Compose files. Select the backend explicitly; the managed Compose runtime is not enabled yet.' unless compose_files.empty?)
+        ('Application Compose files detected: Gitwo does not run them automatically. The compose backend is Gitwo-managed and separate from application Compose files.' unless compose_files.empty?),
+        ('Dev Container configuration detected: discovery only. Gitwo does not yet create or enter Dev Containers; their Docker Compose and workspace mounts need explicit integration.' unless devcontainer_files.empty?),
+        ('Dev Container Compose files detected: they are not run automatically by Gitwo.' unless devcontainer_compose_files.empty?)
       ].compact
     }
   end
