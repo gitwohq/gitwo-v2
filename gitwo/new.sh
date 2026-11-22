@@ -116,7 +116,7 @@ fi
 # No issue provider means no external lookup.
 if [[ "$type" != develop && "$freeform" == no ]]; then
   case "${GITWO_ISSUE_PROVIDER:-jira}" in
-    none) [[ "$offline" == yes || -n "$title" ]] || offline=yes ;;
+    none) [[ "$resume" == yes || "$offline" == yes || -n "$title" ]] || offline=yes ;;
 
   esac
 fi
