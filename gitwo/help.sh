@@ -6,7 +6,7 @@ command="${1:-}"
 case "$command" in
   ''|--help|-h)
     cat <<'EOF'
-Gitwo - ticket worktrees with adapter-managed Rails environments
+Gitwo - named Rails workspaces with optional issue tracker integration
 Usage: gitwo <command> [arguments] [options]
 
 Workspace:
