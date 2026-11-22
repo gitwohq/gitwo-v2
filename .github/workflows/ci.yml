@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for script in gitwo/*.sh gitwo/adapters/*.sh tests/e2e/*.sh tests/*.sh install.sh test-installer.sh; do
+          for script in gitwo/*.sh gitwo/adapters/*.sh tests/e2e/*.sh tests/*.sh scripts/*.sh install.sh test-installer.sh; do
             bash -n "$script"
           done
           for script in gitwo/*.rb; do ruby -c "$script" >/dev/null; done
@@ -55,6 +55,9 @@ jobs:
       - name: Installer and SHA-256 regression
         shell: bash
         run: time bash test-installer.sh
+      - name: Source release archive and extracted installer
+        shell: bash
+        run: time bash tests/test-release-package.sh
 
   regression-macos:
     name: 03 - macOS regression and installer
@@ -74,6 +77,9 @@ jobs:
       - name: Installer and SHA-256 regression
         shell: bash
         run: time bash test-installer.sh
+      - name: Source release archive and extracted installer
+        shell: bash
+        run: time bash tests/test-release-package.sh
 
   rails-linux:
     name: 04 - Linux Rails and PostgreSQL E2E
