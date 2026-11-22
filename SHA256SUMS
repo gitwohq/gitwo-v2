@@ -76,5 +76,5 @@ d7be6d30cd8f218b5acf1526d704948faad3001fdd036ffbb4cec915fbb7fb2e  ./scripts/pack
 3c7777cf06f16a1acc80f39a8b201e64dc19c66c05ee34985c065fbc1ffe9f37  ./SECURITY.md
 09349858c2085896575b3cec80a0e7a23f183debf66b47b6e24cc4def05b9196  ./test-installer.sh
 8d2f8b23f78c60e887768876ce4f4716c9aa6a5ed3f49247a39896d0feaba81f  ./tests/check-dependencies.sh
-4339f3388d6f2bd57adf1db464f138efcfefd512f1ca65883b2793af2d266056  ./tests/e2e/rails-postgres.sh
+225306854f0b5a992a61fba9a8e4e2e44173f8f183733bb616f1a6757ae711fc  ./tests/e2e/rails-postgres.sh
 1b4d7ebdd5ffc2ffc1a0bcc1e481fbbfdfaf664da056e96f38fbb27af616c6ff  ./tests/test-release-package.sh
