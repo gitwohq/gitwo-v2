@@ -119,4 +119,19 @@ ruby -rjson -e '
   compose_in_container = data.fetch("devcontainer_compose_files").fetch("value")
   abort "missing Dev Container Compose file" unless compose_in_container.include?(".devcontainer/docker-compose.yml")
 ' "$tmp/developer-environments.json"
+# Source and target worktrees can diverge in .gitignore. Do not copy
+# a developer-local secret into a newly unignored path on another branch.
+third="$tmp/worktree-third"
+git -C "$source_root" worktree add -q -b feature/ignore-drift "$third"
+ruby - "$third/.gitignore" <<'RUBY'
+path = ARGV.fetch(0)
+File.write(path, File.readlines(path).reject { |line| line.strip == '.env' }.join)
+RUBY
+if git -C "$third" check-ignore -q .env; then
+  echo 'Fixture .env must be visible in target branch' >&2; exit 1
+fi
+gitwo_application_env_copy_ignored "$source_root" "$third" > "$tmp/drift.log" 2>&1
+[[ ! -e "$third/.env" ]]
+grep -Fq 'Not copying application file into non-ignored worktree path: .env' "$tmp/drift.log"
+
 printf '[PASS] app ENV preservation, Compose/Dev Container discovery, safe symlink handling\n'
