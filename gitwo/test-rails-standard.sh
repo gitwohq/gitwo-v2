@@ -11,6 +11,7 @@ GITWO_DB_DEV=fixture_feature_1_development
 GITWO_DB_TEST=fixture_feature_1_test
 gitwo_log() { printf '[INFO] %s\n' "$*" >&2; }
 gitwo_warn() { printf '[WARN] %s\n' "$*" >&2; }
+gitwo_ok() { printf '[OK] %s\n' "$*" >&2; }
 gitwo_die() { printf '[ERROR] %s\n' "$*" >&2; exit 1; }
 source "$here/adapters/rails-standard.sh"
 
