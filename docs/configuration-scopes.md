@@ -44,6 +44,12 @@ without a Git remote or any issue tracker. Local init never silently patches
 verified database integration; `gitwo run` uses the isolated environment.
 Use `--no-setup` only when deliberately testing worktree creation alone.
 
+Detection is read-only and also reports application development tooling:
+tracked versus ignored `config/database.yml`, development/local Docker Compose
+filenames and Dev Container profiles. `gitwo init` does not run an application's
+Compose files or launch Dev Containers. Selecting `services.backend: compose`
+uses Gitwo-owned infrastructure only.
+
 ## Team mode
 
 ```sh
