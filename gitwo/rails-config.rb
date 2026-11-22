@@ -53,11 +53,46 @@ module GitwoRailsConfig
     [lines.join, changes]
   end
 
+  # Rewrite only a workspace-local, ignored Rails database.yml.
+  # Never use this path for a tracked application configuration.
+  def prepare_workspace(contents, development, test)
+    [development, test].each do |name|
+      raise GitwoRailsConfigError, 'Unsafe workspace database identifier' unless IDENTIFIER.match?(name)
+    end
+    raise GitwoRailsConfigError, 'Development and test databases must differ' if development == test
+
+    updated, = prepare(contents)
+    { 'GITWO_DB_DEV' => development, 'GITWO_DB_TEST' => test }.each do |variable, name|
+      pattern = /^  database: <%= ENV\.fetch\("#{variable}", "[A-Za-z_][A-Za-z0-9_-]*"\) %>/
+      matches = updated.scan(pattern)
+      raise GitwoRailsConfigError, "Expected one #{variable} database entry" unless matches.length == 1
+      updated = updated.sub(pattern, %(  database: <%= ENV.fetch("#{variable}", "#{name}") %>))
+    end
+    updated
+  end
+
   def run(args)
     action, path, backup_dir = args
-    raise GitwoRailsConfigError, 'Usage: rails-config.rb <plan|apply> PATH [BACKUP_DIR]' unless %w[plan apply].include?(action) && path
+    raise GitwoRailsConfigError, 'Usage: rails-config.rb <plan|apply|workspace> PATH [ARGS]' unless %w[plan apply workspace].include?(action) && path
     raise GitwoRailsConfigError, 'Refusing symlinked or missing database.yml' unless File.file?(path) && !File.symlink?(path)
     contents = File.binread(path).force_encoding('UTF-8')
+    if action == 'workspace'
+      development, test = args.drop(2)
+      raise GitwoRailsConfigError, 'Usage: rails-config.rb workspace PATH DEVELOPMENT_DB TEST_DB' unless development && test && args.size == 4
+      updated = prepare_workspace(contents, development, test)
+      if updated != contents
+        original_mode = File.stat(path).mode & 0777
+        Tempfile.create(['.gitwo-database-', '.tmp'], File.dirname(path)) do |tmp|
+          tmp.write(updated)
+          tmp.flush
+          File.chmod(original_mode, tmp.path)
+          raise GitwoRailsConfigError, 'database.yml changed concurrently; aborting' unless File.binread(path) == contents
+          File.rename(tmp.path, path)
+        end
+      end
+      puts '[OK] Workspace-local database.yml uses isolated development/test fallbacks'
+      return
+    end
     updated, changes = prepare(contents)
     if changes.empty?
       puts '[OK] database.yml already uses Gitwo workspace DB variables in development/test'
