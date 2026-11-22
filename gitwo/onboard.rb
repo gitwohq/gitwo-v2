@@ -103,6 +103,8 @@ class GitwoOnboard
       end
       activate_location(project, scope, output)
       puts "[INFO] Active scope: #{scope}; project: #{project}"
+      display_environment_notices(detection)
+      display_selected_backend_notice(validated.dig('services', 'backend'))
       return
     end
 
@@ -123,6 +125,7 @@ class GitwoOnboard
         suggested['issues']['credential'] = ask('Credential profile (letters, digits, - and _)', 'default')
       end
       suggested['services']['backend'] = choose('PostgreSQL/Redis service backend (Gitwo-managed Compose)', BACKENDS, 'native')
+      display_selected_backend_notice(suggested.dig('services', 'backend'))
       suggested['database']['bootstrap'] = choose('New database bootstrap (seeds may have side effects)', BOOTSTRAPS, 'schema')
       suggested['runtime']['proxy'] = choose('HTTP proxy', MODES, suggested.dig('runtime', 'proxy'))
       case suggested.dig('issues', 'provider')
@@ -139,6 +142,8 @@ class GitwoOnboard
       raise ArgumentError, 'Cancelled without writing' unless ask('Save configuration? [y/N]', 'n').downcase == 'y'
     else
       puts "[INFO] Non-interactive init: scope=#{scope}, project=#{project}, output=#{output}"
+      display_environment_notices(detection)
+      display_selected_backend_notice(suggested.dig('services', 'backend'))
       unless detection.dig('detected', 'framework', 'value') == 'rails'
         raise ArgumentError, 'Cannot safely initialize a non-Rails repository with --yes'
       end
@@ -206,6 +211,19 @@ class GitwoOnboard
     inferred = detection.dig('inferred', 'workflow')
     puts "  #{'git workflow'.ljust(16)} #{inferred['value'].inspect.ljust(15)} [#{inferred['confidence']}] #{inferred['source']}"
     detection['warnings'].each { |warning| warn "  [WARN] #{warning}" }
+    display_environment_notices(detection)
+  end
+
+  def display_environment_notices(detection)
+    detection.fetch('notices', []).each do |notice|
+      warn "  [NOTICE] #{notice.fetch('message')} Detected: #{notice.fetch('files').join(', ')}"
+    end
+  end
+
+  def display_selected_backend_notice(backend)
+    return unless backend == 'compose'
+
+    warn '  [NOTICE] Gitwo-managed Compose selected: isolated PostgreSQL/Redis only. Existing application Compose files and Dev Containers are NOT configured to launch.'
   end
 
   def show_proposal(suggested, detection, project, output, scope)
