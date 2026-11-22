@@ -2,17 +2,17 @@
 
 Gitwo has two distinct phases:
 
-- A **maintainer** configures the Rails repository once with `gitwo init`,
+- A **maintainer** configures the Rails repository once with `gitwo init --scope=team`,
   reviews the generated `gitwo.yml` and commits it together with any reviewed
   `config/database.yml` integration. No API tokens or passwords belong in Git.
 - Each **developer** installs the Gitwo CLI on their own machine, clones the
-  repository, and runs `gitwo onboard`. The shared YAML is reused, not
+  repository, and runs `gitwo onboard --scope=team`. The shared YAML is reused, not
   regenerated. The local clone directory can have any safe name.
 
 ```sh
 git clone git@github.com:company/rails-app.git my-rails-project
 cd my-rails-project
-gitwo onboard
+gitwo onboard --scope=team
 ```
 
 This command validates the checked-in `gitwo.yml` and reports the missing
@@ -33,12 +33,12 @@ For an explicit one-command bootstrap, after reviewing the tracked Rails
 database configuration:
 
 ```sh
-gitwo onboard --setup
+gitwo onboard --scope=team --setup
 ```
 
 `--setup` asks for confirmation (type `setup`) before delegating to Gitwo's
 normal workspace creation path. For a trusted noninteractive environment use
-`gitwo onboard --setup --yes` deliberately. Both use schema-only DB
+`gitwo onboard --scope=team --setup --yes` deliberately. Both use schema-only DB
 bootstrap and `--no-seed`; a failed partial setup is left intact for inspection.
 A conventional `config/database.yml` must already include `GITWO_DB_DEV`
 and `GITWO_DB_TEST`. Preview the opt-in integration using
@@ -49,9 +49,9 @@ again by the workspace setup process.
 ## CI and machine-specific diagnostics
 
 ```sh
-gitwo onboard --check
-gitwo onboard --check --json
-gitwo onboard --check --local
+gitwo onboard --scope=team --check
+gitwo onboard --scope=team --check --json
+gitwo onboard --scope=team --check --local
 ```
 
 `--check` is a **read-only config contract**: it requires `gitwo.yml`
@@ -63,6 +63,14 @@ machine diagnostic; it checks installed tools without modifying them.
 `--json` returns a status and list of structured checks without secrets.
 The command exits nonzero on a failed required check; warnings (such as
 missing optional provider authentication) do not fail CI.
+
+## Scope selection
+
+`gitwo init` and `gitwo onboard` default to private local mode. Use
+`--scope=team` for the workflows in this document. Switching active scope
+is explicit via `gitwo config use local|team`, with the preference stored
+outside the Git repository. Personal initialization never modifies project
+files. See [configuration scopes](configuration-scopes.md).
 
 ## What stays local
 
