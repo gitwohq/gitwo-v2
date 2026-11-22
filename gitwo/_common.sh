@@ -121,6 +121,10 @@ gitwo_issue_key_from_branch() {
     key="${BASH_REMATCH[1]}"
     gitwo_validate_ticket "$key"
     printf "%s\n" "$key"
+  elif [[ "$1" =~ ^feature/([a-z][a-z0-9]*(?:-[a-z0-9]+)*)-([1-9][0-9]*)$ ]]; then
+    # Local feature workspaces identify their work item by a normalized name
+    # plus a sequential instance. No issue tracker is involved.
+    printf '%s\n' "${1#feature/}"
   else
     gitwo_die "Cannot extract issue key from branch: $1"
   fi
@@ -133,6 +137,10 @@ gitwo_matches_issue_branch() {
 }
 gitwo_validate_type() {
   [[ "$1" == feature || "$1" == hotfix || "$1" == bugfix || "$1" == develop ]] || gitwo_die "Type must be feature, hotfix, bugfix, or develop"
+}
+gitwo_validate_feature_name() {
+  [[ "$1" =~ ^[a-z][a-z0-9]*(-[a-z0-9]+)*$ && ${#1} -le 24 ]] ||
+    gitwo_die 'Feature name must be a lowercase slug (letters/digits/hyphens, max 24 chars)'
 }
 # No Jira key is required for sequential development experiments.
 gitwo_workspace_name() {
@@ -148,6 +156,10 @@ gitwo_validate_workspace_identity() {
   name="$(basename "$path")"
   if [[ "$branch" =~ ^experiment/develop-([1-9][0-9]*)$ ]]; then
     [[ "$name" == "develop-${BASH_REMATCH[1]}" ]] || gitwo_die "Invalid develop workspace: $name ($branch)"
+    return 0
+  fi
+  if [[ "$branch" =~ ^feature/([a-z][a-z0-9]*(-[a-z0-9]+)*)-([1-9][0-9]*)$ ]]; then
+    [[ "$name" == "${branch#feature/}" ]] || gitwo_die "Local feature workspace/branch mismatch: $name ($branch)"
     return 0
   fi
   case "$branch" in feature/*|bugfix/*|hotfix/*) ;; *) gitwo_die "Unsupported worktree branch: $branch" ;; esac
@@ -201,6 +213,38 @@ gitwo_next_instance() {
     fi
   done < <(git -C "$GITWO_SOURCE" for-each-ref --format='%(refname:short)' refs/heads)
   printf '%s\n' "$((max + 1))"
+}
+# Freeform local features use immutable, sequential N suffixes. Include old
+# branches and preserved counters to avoid reusing a previous workspace name.
+gitwo_next_feature_instance() {
+  local name="$1" counter="$GITWO_STATE/counters/freeform-$1" max=0 stored path branch n
+  gitwo_validate_feature_name "$name"
+  if [[ -f "$counter" ]]; then
+    stored="$(cat "$counter")"
+    [[ "$stored" =~ ^[0-9]+$ ]] || gitwo_die "Invalid feature counter: $counter"
+    max="$stored"
+  fi
+  for path in "$GITWO_ROOT/$name-"[1-9]*; do
+    [[ -e "$path" || -L "$path" ]] || continue
+    n="${path##*/$name-}"
+    [[ "$n" =~ ^[1-9][0-9]*$ ]] || continue
+    (( 10#$n > max )) && max="$((10#$n))"
+  done
+  while IFS= read -r branch; do
+    n="${branch#feature/$name-}"
+    if [[ "$branch" == feature/"$name"-* && "$n" =~ ^[1-9][0-9]*$ ]] && (( 10#$n > max )); then
+      max="$((10#$n))"
+    fi
+  done < <(git -C "$GITWO_SOURCE" for-each-ref --format='%(refname:short)' refs/heads)
+  printf '%s\n' "$((max + 1))"
+}
+gitwo_record_feature_instance() {
+  local name="$1" instance="$2" counter="$GITWO_STATE/counters/freeform-$1"
+  gitwo_validate_feature_name "$name"
+  [[ "$instance" =~ ^[1-9][0-9]*$ ]] || gitwo_die 'Invalid feature instance'
+  mkdir -p "$GITWO_STATE/counters"
+  chmod 700 "$GITWO_STATE" "$GITWO_STATE/counters"
+  (umask 077; printf '%s\n' "$instance" > "$counter")
 }
 gitwo_next_develop_instance() {
   local path number max=0 counter="$GITWO_STATE/counters/develop" stored branch
@@ -259,9 +303,9 @@ gitwo_choose_workspace() {
     [[ -n "$path" && "$path" != "$GITWO_SOURCE" ]] || continue
     [[ "${path%/*}" == "$GITWO_ROOT" && -d "$path" && ! -L "$path" ]] || continue
     name="${path##*/}"
-    [[ "$name" =~ ^[a-z][a-z0-9]{1,14}-[0-9]{1,10}-(feature|bugfix|hotfix)(-[1-9][0-9]*)?$ || "$name" =~ ^develop-[1-9][0-9]*$ ]] || continue
+    [[ "$name" =~ ^[a-z][a-z0-9]{1,14}-[0-9]{1,10}-(feature|bugfix|hotfix)(-[1-9][0-9]*)?$ || "$name" =~ ^develop-[1-9][0-9]*$ || "$name" =~ ^[a-z][a-z0-9]*(-[a-z0-9]+)*-[1-9][0-9]*$ ]] || continue
     br="$(git -C "$path" branch --show-current 2>/dev/null || true)"
-    [[ "$br" =~ ^(feature|bugfix|hotfix)/[A-Z][A-Z0-9]{1,14}-[0-9]{1,10}(-|$) || "$br" =~ ^experiment/develop-[1-9][0-9]*$ ]] || continue
+    [[ "$br" =~ ^(feature|bugfix|hotfix)/[A-Z][A-Z0-9]{1,14}-[0-9]{1,10}(-|$) || "$br" =~ ^experiment/develop-[1-9][0-9]*$ || "$br" == feature/"$name" ]] || continue
     paths+=("$path")
     branches+=("$br")
     total=$((total + 1))
@@ -300,7 +344,14 @@ gitwo_resolve_path() {
     path="$input"
   else
     gitwo_need ruby
-    if [[ "$input" =~ ^develop-([1-9][0-9]*)$ ]]; then
+    if [[ "$input" =~ ^[a-z][a-z0-9]*(-[a-z0-9]+)*-[1-9][0-9]*$ && -d "$GITWO_ROOT/$input" &&
+          "$(git -C "$GITWO_ROOT/$input" branch --show-current 2>/dev/null)" == "feature/$input" ]]; then
+      path="$GITWO_ROOT/$input"
+      gitwo_verify_target "$path" "feature/$input"
+      gitwo_validate_workspace_identity "$path" "feature/$input"
+      printf '%s\n' "$path"
+      return 0
+    elif [[ "$input" =~ ^develop-([1-9][0-9]*)$ ]]; then
       path="$GITWO_ROOT/$input"
       [[ -d "$path" ]] || gitwo_die "Missing develop workspace: $path"
       [[ "$(git -C "$path" branch --show-current 2>/dev/null)" == "experiment/develop-${BASH_REMATCH[1]}" ]] || gitwo_die 'Develop workspace branch does not match its directory'
@@ -392,6 +443,9 @@ gitwo_write_state() {
   slug="$(basename "$path")"
   if [[ "$type" == develop ]]; then
     [[ "$slug" == "$(gitwo_workspace_name "$type" "$ticket")" ]] || gitwo_die "Unexpected develop workspace directory: $slug"
+  elif [[ "$type" == feature && "$ticket" =~ ^[a-z][a-z0-9]*(-[a-z0-9]+)*-[1-9][0-9]*$ &&
+            "$slug" == "$ticket" ]]; then
+    : # Freeform features use their normalized name plus instance as identity.
   elif [[ "$slug" != "$(gitwo_slug "$type" "$ticket")" && ! "$slug" =~ ^$(gitwo_slug "$type" "$ticket")-[1-9][0-9]*$ ]]; then
     gitwo_die "Unexpected workspace directory for $ticket: $slug"
   fi
