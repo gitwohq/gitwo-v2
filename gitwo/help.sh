@@ -33,6 +33,7 @@ Tools:
   run [WORKSPACE] MODE [ARGS]    Run Rails, Minitest, RSpec, console or Sidekiq
   setup [WORKSPACE] [OPTIONS]   Initialize Rails environment
   init [OPTIONS]                Detect project and configure Gitwo
+  onboard [--check|--setup]      Adopt committed team gitwo.yml (no repeated init)
   detect [--json]               Inspect repo/framework/workflow without changes
   workspace adopt [WORKSPACE]   Inspect/adopt an existing database
   services <up|down|status> ... Control per-workspace native/Compose dependencies
