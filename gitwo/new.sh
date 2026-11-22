@@ -217,7 +217,14 @@ else
     hotfix) base="${GITWO_HOTFIX_BASE}" ;;
     *) base="${GITWO_FEATURE_BASE}" ;;
   esac
-  [[ "$base" == origin/* ]] || gitwo_die "Base must be origin remote-tracking ref: $base"
+  if [[ "$base" == origin/* ]]; then
+  base_kind=remote
+else
+  [[ "$base" =~ ^[A-Za-z][A-Za-z0-9._-]*$ ]] || gitwo_die "Unsafe local base ref: $base"
+  base_kind=local
+  git -C "$GITWO_SOURCE" show-ref --verify --quiet "refs/heads/$base" ||
+    gitwo_die "Local base branch missing: $base"
+fi
 fi
 
 if [[ "$preview" == yes ]]; then
