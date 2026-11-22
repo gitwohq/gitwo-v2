@@ -38,8 +38,9 @@ class GitwoTeamOnboard
     end
     record('shared_config', true, 'Regular gitwo.yml found in the primary checkout')
 
-    unless git_success?('cat-file', '-e', 'HEAD:gitwo.yml')
-      record('committed_config', false, 'gitwo.yml must be committed in HEAD for repeatable team onboarding')
+    unless git_success?('cat-file', '-e', 'HEAD:gitwo.yml') &&
+           git_success?('ls-files', '--error-unmatch', '--', 'gitwo.yml')
+      record('committed_config', false, 'gitwo.yml must be committed in HEAD and tracked in the index for repeatable team onboarding')
       return finish
     end
     record('committed_config', true, 'Team configuration is committed in HEAD')
