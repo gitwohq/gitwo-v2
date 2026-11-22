@@ -19,7 +19,7 @@ From a trusted Rails checkout:
 gitwo detect
 gitwo init --scope=local --dry-run
 gitwo init                      # Local scope is default; no project files modified
-gitwo new develop --no-setup
+gitwo new feature improve-search    # Rails, PostgreSQL and Redis setup by default
 gitwo list --json
 ```
 
