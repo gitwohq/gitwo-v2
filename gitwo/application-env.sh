@@ -4,7 +4,7 @@
 # Sourced by setup.sh after verifying the selected Gitwo worktree.
 #
 # Git already carries tracked files into a worktree. Only copy a small,
-# development/test-specific allowlist of ignored files from the main checkout.
+# development/test-specific allowlist including ignored database.yml of ignored files from the main checkout.
 # Deliberately exclude staging and production secrets.
 
 gitwo_application_env_copy_ignored() {
@@ -13,7 +13,7 @@ gitwo_application_env_copy_ignored() {
   for file in \
     .env .env.local .env.development .env.development.local \
     .env.test .env.test.local .envrc \
-    config/master.key config/credentials/development.key config/credentials/test.key; do
+    config/database.yml config/master.key config/credentials/development.key config/credentials/test.key; do
     original="$source_root/$file"
     target="$target_root/$file"
 
