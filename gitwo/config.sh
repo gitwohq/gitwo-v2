@@ -3,10 +3,12 @@
 set -euo pipefail
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/_common.sh"
 usage() {
-  printf 'Usage: gitwo config <show|path|validate|init> [--json]\n'
+  printf 'Usage: gitwo config <show|path|validate|scope|use|init> [--json|local|team]\n'
   printf '  show      Display effective nonsecret configuration\n'
   printf '  path      Print the active config.yml path\n'
   printf '  validate  Validate YAML and effective options without modifying files\n  init      Create a private gitwo.yml from auto-detection (never overwrite)\n'
+  printf '  scope     Show selected local/team configuration scope\n'
+  printf '  use       Persist selected scope locally (local|team); no project writes\n'
   printf '  --json    Machine-readable output for show\n'
 }
 if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then usage; exit 0; fi
@@ -14,11 +16,25 @@ if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then usage; exit 0; fi
 action="$1"; shift
 case "$action" in
   show) [[ $# -eq 0 || ( $# -eq 1 && "$1" == --json ) ]] || { usage >&2; exit 2; } ;;
-  path|validate|init) [[ $# -eq 0 ]] || { usage >&2; exit 2; } ;;
+  path|validate|init|scope) [[ $# -eq 0 ]] || { usage >&2; exit 2; } ;;
+  use) [[ $# -eq 1 && ( "$1" == local || "$1" == team ) ]] || { usage >&2; exit 2; } ;;
   *) usage >&2; exit 2 ;;
 esac
 if [[ "$action" == init ]]; then
-  exec ruby "$GITWO_DIR/onboard.rb" init --yes
+  exec ruby "$GITWO_DIR/onboard.rb" init --scope=local --yes
+fi
+if [[ "$action" == scope ]]; then
+  ruby "$GITWO_DIR/config-location.rb" scope "$GITWO_SOURCE"
+  exit
+fi
+if [[ "$action" == use ]]; then
+  scope="$1"
+  config="$(ruby "$GITWO_DIR/config-location.rb" "$scope" "$GITWO_SOURCE")" || exit 2
+  [[ -f "$config" && ! -L "$config" ]] || { printf 'Missing or unsafe %s config: %s\n' "$scope" "$config" >&2; exit 2; }
+  ruby "$GITWO_DIR/config.rb" validate "$config" >/dev/null || exit 2
+  ruby "$GITWO_DIR/config-location.rb" use "$GITWO_SOURCE" "$scope" || exit 2
+  printf '[OK] Activated %s scope locally. Config: %s\n' "$scope" "$config"
+  exit 0
 fi
 if [[ -e "$GITWO_CONFIG_FILE" || -L "$GITWO_CONFIG_FILE" ]]; then
   [[ -f "$GITWO_CONFIG_FILE" && ! -L "$GITWO_CONFIG_FILE" ]] || gitwo_die "Unsafe config file: $GITWO_CONFIG_FILE"
