@@ -56,6 +56,20 @@ module GitwoRailsConfig
   # Rewrite only a workspace-local, ignored Rails database.yml.
   # Never use this path for a tracked application configuration.
   def prepare_workspace(contents, development, test)
+    # Legacy ignored files may provide development only. For this workspace,
+    # inherit that complete environment block into test before substituting
+    # distinct database names. Tracked YAML is never passed to this mode.
+    unless contents.match?(/^test:\s*(?:#.*)?$/)
+      lines = contents.lines
+      starts = lines.each_index.select { |index| lines[index].match?(/^development:\s*(?:#.*)?\n?$/) }
+      raise GitwoRailsConfigError, 'Expected one development configuration to derive test from' unless starts.length == 1
+      start = starts.first
+      ending = ((start + 1)...lines.length).find { |index| lines[index].match?(/\A[^\s#][^\n]*:\s*(?:#.*)?\n?\z/) } || lines.length
+      block = lines[start...ending].join.sub(/\Adevelopment:/, 'test:')
+      contents = contents.rstrip + "\n\n" + block
+      contents += "\n" unless contents.end_with?("\n")
+    end
+
     [development, test].each do |name|
       raise GitwoRailsConfigError, 'Unsafe workspace database identifier' unless IDENTIFIER.match?(name)
     end
