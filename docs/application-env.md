@@ -6,6 +6,10 @@ ENV convention, reformat a team's dotfiles, or require an external secret manage
 Application ENV belongs to the application. Gitwo's computed workspace variables
 belong to Gitwo. These responsibilities stay separate.
 
+`gitwo detect --json` includes a read-only `detected.application_env` inventory
+of file names and whether they are tracked, ignored, untracked or symlinked.
+No secret contents are read, output or validated.
+
 ## What is preserved
 
 Tracked application files are already present in every Git worktree. During
