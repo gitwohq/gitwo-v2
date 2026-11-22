@@ -28,3 +28,13 @@ Release hardening (2026-11-21): MIT license, strict data parsing for state and p
 
 Release CI hardening: consolidated SHA-pinned workflow, fail-fast dependency policy,
 Rails fixture updated to 7.2.4, no duplicate PR branch runs, and dependency inventory.
+
+
+Release-readiness changes (2026-11-22):
+- Extended real Rails E2E coverage to pinned Rails 8.1.4.1 and rspec-rails 8.1.0 on native and isolated Compose backends.
+- Added concurrent allocation regression with five workspaces and safer Compose removal preflight.
+- Hardened runtime port metadata validation, and improved doctor checks for Docker, direnv and Portless.
+- Added a source archive builder plus Linux/macOS installation-from-archive tests.
+- Pre-release distribution instructions: `bash scripts/package-release.sh "$PWD/dist"` and `bash tests/test-release-package.sh`.
+- The generated `gitwo-4.21.0.tar.gz` and `.sha256` are **local release candidates**, not published GitHub Releases.
+- Before a public release, complete the [macOS acceptance checklist](docs/macos-acceptance.md) on a real trusted Rails project.
