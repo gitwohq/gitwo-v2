@@ -88,7 +88,7 @@ mv "$root/compose.env.saved" "$root/compose.env"
 
 # A down operation must address only the selected Compose project.
 project_first="$(awk '$1=="compose" && $2=="--project-name" && / up -d --wait postgres redis-dev redis-test$/ { print $3; exit }' "$tmp/docker.log")"
-project_second="$(awk '$1=="compose" && $2=="--project-name" && / up -d --wait postgres redis-dev redis-test$/ { value=$3 } END { print value }' "$tmp/docker.log")"
+project_second="$(awk '$1=="compose" && $2=="--project-name" && / up -d --wait postgres redis-dev redis-test$/ { count++; if (count==2) { print $3; exit } }' "$tmp/docker.log")"
 [[ -n "$project_first" && -n "$project_second" && "$project_first" != "$project_second" ]]
 bash "$here/services.sh" down develop-1
 [[ "$(awk '$1=="compose" && $2=="--project-name" && $NF=="down" { print $3 }' "$tmp/docker.log")" == "$project_first" ]]
