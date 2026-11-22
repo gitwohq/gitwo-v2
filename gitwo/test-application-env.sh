@@ -119,6 +119,20 @@ ruby -rjson -e '
   compose_in_container = data.fetch("devcontainer_compose_files").fetch("value")
   abort "missing Dev Container Compose file" unless compose_in_container.include?(".devcontainer/docker-compose.yml")
 ' "$tmp/developer-environments.json"
+ruby -rjson -e '
+  result = JSON.parse(File.read(ARGV.fetch(0)))
+  notices = result.fetch("notices")
+  by_code = notices.to_h { |item| [item.fetch("code"), item] }
+  %w[project_compose_not_configured devcontainer_not_configured devcontainer_compose_not_configured].each do |code|
+    item = by_code.fetch(code)
+    abort "incorrect notice status: #{item}" unless item.fetch("status") == "detected_not_configured"
+    abort "missing filenames: #{item}" if item.fetch("files").empty?
+    abort "missing explanatory notice" unless item.fetch("message").include?("not configured")
+  end
+' "$tmp/developer-environments.json"
+ruby "$here/onboard.rb" detect --project="$source_root" > "$tmp/detect-notices.log" 2>&1
+grep -Fq '[NOTICE] Project Docker Compose files detected' "$tmp/detect-notices.log"
+grep -Fq '[NOTICE] Dev Container configuration detected' "$tmp/detect-notices.log"
 # Source and target worktrees can diverge in .gitignore. Do not copy
 # a developer-local secret into a newly unignored path on another branch.
 third="$tmp/worktree-third"
@@ -133,5 +147,37 @@ fi
 gitwo_application_env_copy_ignored "$source_root" "$third" > "$tmp/drift.log" 2>&1
 [[ ! -e "$third/.env" ]]
 grep -Fq 'Not copying application file into non-ignored worktree path: .env' "$tmp/drift.log"
+
+# Verify both non-interactive onboarding and the explicitly selected managed
+# Compose backend communicate that detected project runtimes are NOT configured.
+notice_project="$tmp/notice-rails"
+mkdir -p "$notice_project/config" "$notice_project/db" "$notice_project/.devcontainer"
+git init -q -b main "$notice_project"
+git -C "$notice_project" config user.name 'Gitwo fixture'
+git -C "$notice_project" config user.email fixture@example.invalid
+printf "gem 'rails'\ngem 'pg'\n" > "$notice_project/Gemfile"
+printf '# application fixture\n' > "$notice_project/config/application.rb"
+printf '# schema fixture\n' > "$notice_project/db/schema.rb"
+printf 'services: {}\n' > "$notice_project/compose.local.yml"
+printf '{"name":"fixture"}\n' > "$notice_project/.devcontainer/devcontainer.json"
+git -C "$notice_project" add .
+git -C "$notice_project" commit -qm 'Create developer runtime notice fixture'
+ruby "$here/onboard.rb" init --project="$notice_project" --scope=team --yes > "$tmp/init-notices.log" 2>&1
+grep -Fq '[NOTICE] Project Docker Compose files detected' "$tmp/init-notices.log"
+grep -Fq '[NOTICE] Dev Container configuration detected' "$tmp/init-notices.log"
+ruby -ryaml -e '
+  path = ARGV.fetch(0)
+  config = YAML.safe_load_file(path)
+  config.fetch("services")["backend"] = "compose"
+  File.write(path, YAML.dump(config))
+' "$notice_project/gitwo.yml"
+ruby "$here/onboard.rb" init --project="$notice_project" --scope=team --yes > "$tmp/init-managed-compose.log" 2>&1
+grep -Fq '[NOTICE] Gitwo-managed Compose selected: isolated PostgreSQL/Redis only.' "$tmp/init-managed-compose.log"
+grep -Fq 'Dev Containers are NOT configured to launch.' "$tmp/init-managed-compose.log"
+ruby "$here/onboard.rb" init --project="$notice_project" --scope=team --json > "$tmp/init-notices.json"
+ruby -rjson -e '
+  result = JSON.parse(File.read(ARGV.fetch(0)))
+  abort "missing machine-readable notices" unless result.fetch("detection").fetch("notices").length == 2
+' "$tmp/init-notices.json"
 
 printf '[PASS] app ENV preservation, Compose/Dev Container discovery, safe symlink handling\n'
