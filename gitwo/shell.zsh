@@ -54,6 +54,7 @@ gitwo() {
     services) required_script=services.sh ;;
     init) required_script=onboard.rb ;;
     detect) required_script=onboard.rb ;;
+    onboard) required_script=team-onboard.rb ;;
     workspace) required_script=workspace-env.sh ;;
     setup) required_script=setup.sh ;;
     version|--version) required_script=VERSION ;;
