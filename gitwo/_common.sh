@@ -80,7 +80,8 @@ GITWO_PROJECT_SOURCE="${GITWO_PROJECT_SOURCE:-$(basename "$GITWO_SOURCE")}"
 GITWO_BASE_BRANCH="${GITWO_BASE_BRANCH:-$(git -C "$GITWO_SOURCE" branch --show-current)}"
 GITWO_DB_PREFIX="${GITWO_DB_PREFIX:-$(printf "%s" "$GITWO_PROJECT_SOURCE" | tr "[:upper:]-" "[:lower:]_" | cut -c1-20)}"
 GITWO_DUMPS_DIR="${GITWO_DUMPS_DIR:-dumps}"
-[[ "$GITWO_PROJECT_SOURCE" == "$(basename "$GITWO_SOURCE")" ]] || gitwo_die "Configured source does not match selected Git repository: $GITWO_PROJECT_SOURCE"
+# project.source is a stable logical team label, not the developer's local clone folder.
+# Workspace paths and state remain rooted in the canonical local checkout path.
 case "$GITWO_ADAPTER" in rails-webpack|rails-standard) ;; *) gitwo_die "Unknown project adapter: $GITWO_ADAPTER" ;; esac
 [[ "$GITWO_PROJECT_SOURCE" =~ ^[a-zA-Z][a-zA-Z0-9_-]*$ ]] || gitwo_die 'Unsafe project.source name'
 [[ "$GITWO_BASE_BRANCH" =~ ^[a-zA-Z][a-zA-Z0-9._-]*$ && "$GITWO_BASE_BRANCH" != *..* && "$GITWO_BASE_BRANCH" != *.lock ]] || gitwo_die 'Unsafe project.base_branch'
