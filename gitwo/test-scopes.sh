@@ -83,4 +83,40 @@ gitwo config use team > /dev/null
 mkdir -p "$tmp/projects/alternate"
 git clone -q "$tmp/projects/alpha.git" "$tmp/projects/alternate/alpha"
 [[ "$(ruby "$here/config-location.rb" local "$tmp/projects/alternate/alpha")" != "$expected" ]]
-printf '[PASS] local/team scopes, safe config paths, idempotent init and explicit activation\n'
+# Exercise the real TTY wizard: all suggested paths are deterministic and
+# pressing Enter accepts them without a project-root YAML write.
+make_project gamma
+cd "$project"
+ruby -rpty -rtimeout - "$here/onboard.rb" "$project" <<'RUBY'
+script, project = ARGV
+Dir.chdir(project)
+reader, writer, pid = PTY.spawn(RbConfig.ruby, script, 'init', '--scope=local')
+pending = ''
+prompts = [/Project checkout \[/, /Configuration file \[/,
+           /Select number or value/ , /Select number or value/,
+           /Select number or value/, /Select number or value/,
+           /Select number or value/, /Save configuration\?/]
+begin
+  prompts.each_with_index do |pattern, index|
+    Timeout.timeout(15) do
+      loop do
+        found = pattern.match(pending)
+        if found
+          pending = pending[(found.end(0))..] || ''
+          break
+        end
+        pending << reader.readpartial(4096)
+      end
+    end
+    writer.write(index == prompts.length - 1 ? "y\n" : "\n")
+  end
+  status = Timeout.timeout(15) { Process.waitpid2(pid)[1] }
+  abort 'Interactive init failed' unless status.success?
+ensure
+  reader.close unless reader.closed?
+  writer.close unless writer.closed?
+end
+RUBY
+[[ -f "$(ruby "$here/config-location.rb" local "$project")" && ! -e "$project/gitwo.yml" ]]
+[[ -z "$(git status --porcelain --untracked-files=all)" ]]
+printf '[PASS] local/team scopes, TTY defaults, safe paths, idempotent init and explicit activation\n'
