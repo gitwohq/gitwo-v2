@@ -360,6 +360,34 @@ grep -Fq 'Use: gitwo run improve-search-1 rails' "$work/named-setup.log"
 ruby -rjson -e 's=JSON.parse(File.read(ARGV.fetch(0))); abort s.inspect unless s["data_source"]=="schema-only" && s["workspace"]=="improve-search-1"' "$work/named-status.json"
 [[ "$(fixture_psql improve-search-1 -d gitwo_fixture_improve_search_1_development -Atqc 'SELECT COUNT(*) FROM widgets')" == 0 ]]
 "$cli" run improve-search-1 rails runner 'abort unless ActiveRecord::Base.connection_db_config.database == "gitwo_fixture_improve_search_1_development"' > "$work/named-rails.log"
+
+# Custom Rake helpers can read config_for(:database), not ActiveRecord's
+# DATABASE_URL; verify the actual configured target in both environments.
+mkdir -p "$named/lib/tasks"
+cat > "$named/lib/tasks/gitwo_custom_database.rake" <<'RUBY'
+namespace :db do
+  custom_config = Rails.application.config_for(:database)
+  desc "Test custom Rake config for #{custom_config.fetch(:database)}"
+  task :gitwo_custom_database do
+  end
+end
+RUBY
+"$cli" setup "$named" --no-seed > "$work/custom-rake-ok.out" 2> "$work/custom-rake-ok.err"
+cp "$named/config/database.yml" "$work/named-database-original.yml"
+ruby - "$named/config/database.yml" <<'RUBY'
+path = ARGV.fetch(0)
+original = File.read(path)
+updated = original.sub(/(?<=^  database: )<%= ENV.fetch\("GITWO_DB_DEV", "[^"]+"\) %>/, 'gitwo_fixture_development')
+abort 'Expected native Rails database integration' if updated == original
+File.write(path, updated)
+RUBY
+if "$cli" setup "$named" --no-seed > "$work/custom-rake-bad.out" 2> "$work/custom-rake-bad.err"; then
+  echo 'Custom Rails Rake config pointed to the shared DB but setup allowed it' >&2; exit 1
+fi
+grep -Fq 'Custom Rake config_for(:database) must use isolated workspace database' "$work/custom-rake-bad.err"
+cp "$work/named-database-original.yml" "$named/config/database.yml"
+rm "$named/lib/tasks/gitwo_custom_database.rake"
+
 "$cli" list --json | grep -q 'feature/improve-search-1'
 
 # A previous Rails bootstrap may have created the isolated DB but failed
