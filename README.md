@@ -93,8 +93,13 @@ Use `gitwo run improve-search-1 rails ...` for Rails commands with Gitwo's
 isolated database settings. Native `bin/rails` requires separately verified
 development/test isolation. If the application has no `.envrc`, Gitwo can
 generate an optional local direnv activation file after verification. It
-never changes tracked database configuration automatically. See
-[workspace activation](docs/workspace-activation.md).
+never changes tracked database configuration automatically. Applications
+with custom Rake tasks calling `Rails.application.config_for(:database)`
+must supply their own workspace-local `config/database.yml` with isolated
+development/test names. `DATABASE_URL` alone does not satisfy these custom
+tasks. Setup now fails before creating a database when this known incompatibility
+is detected, rather than copying a config that might target the main checkout.
+See [workspace activation](docs/workspace-activation.md).
 
 ## Release candidate preparation
 
