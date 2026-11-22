@@ -129,7 +129,7 @@ module GitwoDetection
         'runtime' => { 'proxy' => proxy, 'domain' => domain }
       },
       'warnings' => [
-        ('No origin remote: branch creation needs an origin remote' if remote.empty?),
+        ('No origin remote: local feature workspaces will start from the primary branch' if remote.empty?),
         ('No origin tracking ref for proposed primary branch' if main_ref && !refs.include?(main_ref)),
         ('Rails is not detected: only Rails adapters are currently supported' unless rails_markers),
         ('PostgreSQL is not detected: Rails adapter setup requires PostgreSQL' unless postgres),
