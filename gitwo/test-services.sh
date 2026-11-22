@@ -97,10 +97,9 @@ bash "$here/services.sh" down develop-2
 [[ "$(awk '$1=="compose" && $2=="--project-name" && $NF=="down" { print $3 }' "$tmp/docker.log")" == "$(printf '%s\n%s' "$project_first" "$project_second")" ]]
 ! grep -q -- 'down -v' "$tmp/docker.log"
 # A stopped Compose workspace must pass the safe, non-destructive removal preflight.
-bash "$here/remove.sh" develop-1 --dry-run > "$tmp/remove-preview.log"
+bash "$here/remove.sh" develop-1 --dry-run > "$tmp/remove-preview.log" 2>&1
 [[ -d "$tmp/worktrees/develop-1" ]]
-grep -Fq 'Dry run complete' "$tmp/remove-preview.log" 2> /dev/null ||
-  grep -Fq 'Dry run complete' "$tmp/remove-preview.log"
+grep -Fq 'Dry run complete' "$tmp/remove-preview.log"
 [[ -f "$root/pg.password" && -f "$root/pg.port" ]]
 # Start three more workspaces concurrently. Locking must prevent PostgreSQL,
 # Redis and web port collisions even when multiple terminals race to create them.
