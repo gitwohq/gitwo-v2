@@ -24,7 +24,7 @@ trap 'rm -rf -- "$tmp"' EXIT
 
 # git archive includes only tracked files and preserves executable modes.
 git -C "$root" archive --format=tar --prefix="gitwo-$version/" HEAD | gzip -n > "$tmp/$archive"
-tar -tzf "$tmp/$archive" | grep -Fqx "gitwo-$version/SHA256SUMS"
+tar -tzf "$tmp/$archive" | grep -Fx "gitwo-$version/SHA256SUMS" > /dev/null
 if command -v sha256sum >/dev/null 2>&1; then
   checksum="$(sha256sum "$tmp/$archive" | awk '{print $1}')"
 else
