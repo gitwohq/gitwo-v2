@@ -49,6 +49,15 @@ gitwo_launcher_detect() {
       { printf 'Selected process manager but Procfile.dev is absent\n' >&2; return 1; }
     grep -Eq '^[[:space:]]*web[[:space:]]*:' "$procfile" ||
       { printf 'Procfile.dev has no web process for Portless routing\n' >&2; return 1; }
+    # Foreman and Overmind assign -p as the first process's PORT and
+    # increment it for subsequent processes. Portless always routes that
+    # first port, so an arbitrary Procfile order would route to the wrong app.
+    local first_process
+    first_process="$(awk '/^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*:/ {
+      gsub(/^[[:space:]]*/, "", $0); sub(/:.*/, "", $0); print; exit
+    }' "$procfile")"
+    [[ "$first_process" == web ]] ||
+      { printf 'Procfile.dev must list web first for safe Portless routing (found: %s)\n' "$first_process" >&2; return 1; }
     command -v "$requested" >/dev/null 2>&1 ||
       { printf 'Missing development process manager: %s\n' "$requested" >&2; return 1; }
   fi
