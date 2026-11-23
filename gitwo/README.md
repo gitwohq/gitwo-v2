@@ -63,6 +63,22 @@ The application is not rewritten as part of init.
 
 `issues.provider: none` accepts issue-style keys (e.g. `ENG-42`) without API calls; `gitwo new develop` creates sequential standalone experiment worktrees.
 
+## Runtime launcher (Rails, bin/dev, Foreman and Overmind)
+
+`gitwo up` now selects the existing project development launcher:
+executable `bin/dev` first, otherwise `Procfile.dev` with installed
+Overmind/Foreman, otherwise plain Rails server. It passes isolated DB/Redis
+and workspace hostname/port settings to the child launcher instead of
+replacing the project's process configuration.
+
+`gitwo up --dry-run --json` inspects the selection without starting anything.
+`gitwo up --json` emits a machine-readable `starting` event, sends app
+logs to stderr, and stays in the foreground. The event does not claim HTTP
+or HMR readiness. Use `gitwo up --launcher=rails` for explicit fallback.
+Existing project Compose and Dev Container runtimes remain unsupported
+until an explicit opt-in integration is added. Multi-process `gitwo up`
+must be stopped with Ctrl-C; there is no managed detached supervisor yet.
+
 ## Database readiness and developer environments
 
 A fully provisioned workspace is ready only after Gitwo verifies separate,

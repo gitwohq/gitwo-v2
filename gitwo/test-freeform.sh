@@ -48,6 +48,30 @@ first="$(gitwo new feature 'Improve search' --no-setup)"
 [[ "$first" == "$tmp/.gitwo-workspaces/project/improve-search-1" ]]
 [[ "$(git -C "$first" branch --show-current)" == feature/improve-search-1 ]]
 [[ "$(gitwo checkout improve-search-1)" == "$first" ]]
+# Headless launcher discovery must not allocate ports or start any services.
+gitwo up improve-search-1 --dry-run --json > "$tmp/up-plan.json"
+ruby -rjson -e '
+  r=JSON.parse(File.read(ARGV.fetch(0)))
+  abort r.inspect unless r.fetch("status")=="plan" &&
+    r.fetch("workspace")=="improve-search-1" &&
+    r.fetch("launcher")=="rails" &&
+    r.fetch("proxy")=="none"
+' "$tmp/up-plan.json"
+[[ "$(find "$HOME/.local/state/gitwo/projects" -name "*.ports" | wc -l | tr -d " ")" == 0 ]]
+if gitwo up improve-search-1 --launcher=overmind --dry-run > "$tmp/launcher-no-procfile" 2>&1; then
+  echo 'Unsupported explicit process manager unexpectedly accepted' >&2; exit 1
+fi
+mkdir -p "$first/bin"
+cat > "$first/bin/dev" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+chmod +x "$first/bin/dev"
+gitwo up --dry-run --json improve-search-1 > "$tmp/dev-plan.json"
+ruby -rjson -e 'r=JSON.parse(File.read(ARGV.fetch(0))); abort r.inspect unless r["launcher"]=="bin-dev"' "$tmp/dev-plan.json"
+gitwo up improve-search-1 --launcher=rails --dry-run --json > "$tmp/rails-plan.json"
+ruby -rjson -e 'r=JSON.parse(File.read(ARGV.fetch(0))); abort r.inspect unless r["launcher"]=="rails"' "$tmp/rails-plan.json"
+[[ "$(find "$HOME/.local/state/gitwo/projects" -name "*.ports" | wc -l | tr -d " ")" == 0 ]]
 second="$(gitwo new feature 'Improve search' --no-setup)"
 [[ "$second" == "$tmp/.gitwo-workspaces/project/improve-search-2" ]]
 [[ "$(git -C "$second" branch --show-current)" == feature/improve-search-2 ]]

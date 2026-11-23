@@ -273,6 +273,61 @@ done
 "$cli" down develop-1
 wait "$server_pid" >/dev/null 2>&1 || true
 server_pid=''
+
+# Exercise the newly selected bin/dev launcher with real Rails and Portless,
+# not just a mocked process or command-line dry run.
+had_bin_dev=no
+if [[ -e "$first/bin/dev" ]]; then
+  [[ -f "$first/bin/dev" && ! -L "$first/bin/dev" ]] || { echo 'Unexpected bin/dev fixture' >&2; exit 1; }
+  mv "$first/bin/dev" "$work/original-bin-dev"
+  had_bin_dev=yes
+fi
+cat > "$first/bin/dev" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'PORT=%s\nAPP_HOST=%s\nDATABASE_URL=%s\nREDIS_URL=%s\n' \
+  "${PORT:-}" "${APP_HOST:-}" "${DATABASE_URL:-}" "${REDIS_URL:-}" \
+  > "$GITWO_E2E_ENV_SNAPSHOT"
+exec bundle exec rails server -b 127.0.0.1
+SH
+chmod +x "$first/bin/dev"
+GITWO_E2E_ENV_SNAPSHOT="$work/bin-dev-runtime.env"
+export GITWO_E2E_ENV_SNAPSHOT
+"$cli" up develop-1 --dry-run --json > "$work/bin-dev-plan.json"
+ruby -rjson -e 'r=JSON.parse(File.read(ARGV.fetch(0))); abort r.inspect unless r["status"]=="plan" && r["launcher"]=="bin-dev"' "$work/bin-dev-plan.json"
+"$cli" up develop-1 --launcher=bin-dev > "$work/bin-dev-server.log" 2>&1 &
+server_pid="$!"
+bin_dev_ready=no
+for ((attempt=0;attempt<90;attempt++)); do
+  if [[ "$GITWO_PROXY" == portless ]]; then
+    if [[ -f "$HOME/.portless/ca.pem" ]] &&
+       curl --fail --silent --max-time 2 --cacert "$HOME/.portless/ca.pem" "$("$cli" open develop-1 --print)/" | grep -qx 'gitwo-e2e-ok'; then
+      bin_dev_ready=yes; break
+    fi
+  else
+    port="$(awk -F= '$1=="WEB_PORT" {print $2}' "$ports_file")"
+    if curl --fail --silent --max-time 2 "http://127.0.0.1:${port}/" | grep -qx 'gitwo-e2e-ok'; then
+      bin_dev_ready=yes; break
+    fi
+  fi
+  if ! kill -0 "$server_pid" 2>/dev/null; then
+    cat "$work/bin-dev-server.log" >&2
+    echo 'Gitwo bin/dev launcher exited before HTTP was ready' >&2; exit 1
+  fi
+  sleep 1
+done
+[[ "$bin_dev_ready" == yes ]] || { cat "$work/bin-dev-server.log" >&2; echo 'bin/dev route was not healthy' >&2; exit 1; }
+grep -Fq 'gitwo_fixture_develop_1_development' "$work/bin-dev-runtime.env"
+grep -Fq 'REDIS_URL=redis://' "$work/bin-dev-runtime.env"
+"$cli" down develop-1
+wait "$server_pid" >/dev/null 2>&1 || true
+server_pid=''
+if [[ "$had_bin_dev" == yes ]]; then
+  mv "$work/original-bin-dev" "$first/bin/dev"
+else
+  rm "$first/bin/dev"
+fi
+unset GITWO_E2E_ENV_SNAPSHOT
 # Verify normal Rails server with Gitwo-owned Portless static HTTPS route.
 if [[ "$GITWO_PROXY" == portless ]]; then
   "$cli" workspace proxy register develop-1

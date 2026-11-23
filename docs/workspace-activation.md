@@ -190,6 +190,50 @@ selected Ruby's `bin/` directory to `PATH` without altering tracked files.
 - If direnv is not installed, direct commands are **not** claimed isolated;
   install/approve direnv before running destructive Rails DB tasks.
 
+## Managed Rails runtime launcher
+
+`gitwo up` uses the project's existing development entrypoint when available.
+The deterministic selection order is an executable, non-symlinked `bin/dev`,
+then an explicit `Procfile.dev` using an installed Overmind or Foreman,
+and finally the standard `bundle exec rails server` fallback. A Procfile
+without a `web:` process is rejected. For direct Foreman/Overmind launch,
+`web:` must be **first** because their `-p` base port is assigned to
+the first process, which is the port Portless routes. When a process manager is missing,
+Gitwo refuses to silently launch only Rails, since that would omit required
+processes. An explicit `--launcher=rails` override is available for debugging.
+
+```bash
+gitwo up --dry-run --json
+gitwo up --launcher=auto
+gitwo up --launcher=rails
+```
+
+The managed launcher inherits isolated Rails `DATABASE_URL`, Redis URLs,
+`APP_HOST`, `GITWO_APP_URL` and the selected `PORT`. Under Portless,
+the child launcher receives Portless's dynamically assigned `PORT`. When
+running Foreman or Overmind directly, Gitwo passes that port with `-p`.
+`bin/dev` remains responsible for respecting inherited `PORT` if it
+specifies its own process-manager arguments.
+
+`gitwo up --dry-run --json` is side-effect-free and returns the launcher
+choice. `gitwo up --json` is a foreground process: it emits a single
+`status: starting` JSON event to stdout, sends application logs to stderr,
+and exits with the process's status. That event is **not** a health check.
+Non-interactive invocations never prompt for ownership adoption; they refuse
+unregistered existing DBs. Detached process supervision is deferred.
+
+For Vite, Portless routes the web process and provides a hostname and HTTP
+port. Gitwo does **not** rewrite a Vite config and cannot guarantee HMR
+WebSockets work without a project-specific HMR host/proxy configuration.
+The launcher warns when it sees common Vite config filenames.
+
+`gitwo down` still verifies and terminates workspace-owned Puma/Sidekiq
+processes, but it does not yet supervise an externally started
+Foreman/Overmind process group. Keep multi-process `gitwo up` in the
+foreground and stop it with Ctrl-C so the process manager can cleanly stop
+its own children. Do not rely on `gitwo down` to stop arbitrary frontend
+or process-manager children.
+
 ## Existing developer Compose files and Dev Containers
 
 `gitwo detect --json` includes a stable `notices` array when project

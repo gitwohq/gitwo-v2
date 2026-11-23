@@ -73,6 +73,8 @@ gitwo_up_prepare() {
     # When unregistered, it asks the user to type the exact DB name.
     if [[ ! -f "$marker" ]]; then
       gitwo_warn "Existing database $expected_dev is unregistered. Adoption needs explicit confirmation."
+      [[ "${GITWO_NON_INTERACTIVE:-0}" != 1 && -t 0 ]] ||
+        gitwo_die "Refusing non-interactive database adoption for $expected_dev; inspect and register it explicitly"
       "$GITWO_DIR/init.sh" "$target" --adopt-db
     else
       gitwo_log 'Database is registered; regenerating missing workspace metadata (no Rails setup)'

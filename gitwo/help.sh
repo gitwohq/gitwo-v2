@@ -25,7 +25,7 @@ Workspace:
   base                           Change to the permanent develop worktree
   list [--json]                  List local Git worktrees (alias: ls)
   status [WORKSPACE] [--json]    Read-only Git, DB and runtime status
-  up [WORKSPACE]                 Safely prepare and run Puma + Redis + Portless
+  up [WORKSPACE]                 Safely prepare and run the detected development launcher
   down [WORKSPACE]               Stop verified workspace-owned processes
   logs [WORKSPACE] [OPTIONS]     Read or follow service logs
   remove [WORKSPACE] [OPTIONS]   Safely remove a worktree (DBs retained by default)
@@ -76,14 +76,21 @@ Usage: gitwo new feature [NAME|ISSUE] [OPTIONS]
 EOF
     ;;
   up) cat <<'EOF'
-Usage: gitwo up [WORKSPACE]
-Prepare/adopt a local workspace and run Puma + workspace Redis via Portless.
-Existing databases are never automatically overwritten; adoption requires confirmation.
+Usage: gitwo up [WORKSPACE] [--launcher=auto|rails|bin-dev|foreman|overmind] [--dry-run] [--json]
+Detect and invoke the project's existing development launcher with isolated databases,
+Redis, PORT and Portless HTTPS (or a reserved direct HTTP port).
+Default selection: executable bin/dev, otherwise Procfile.dev via installed
+Overmind/Foreman, otherwise Rails server. Explicit --launcher=rails overrides.
+--dry-run [--json] inspects the plan without starting services.
+--json emits one machine-readable startup event; server logs go to stderr.
+Launching a running app is foreground-only. Stop with Ctrl-C.
+Vite HMR may require application-specific configuration behind HTTPS.
+Existing databases are never automatically overwritten; non-TTY adoption is refused.
 EOF
     ;;
   run) cat <<'EOF'
 Usage: gitwo run [WORKSPACE] <server|test|minitest|rspec|rails|console|sidekiq> [ARGS]
-  server     Run Puma + dedicated Redis
+  server     Run detected development launcher + dedicated Redis
   test       Auto-select Minitest or RSpec; refuse ambiguous projects
   minitest   Rails test (Minitest) + isolated test DB and Redis
   rspec      RSpec + isolated test DB and Redis
