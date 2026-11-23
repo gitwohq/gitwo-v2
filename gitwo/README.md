@@ -63,6 +63,25 @@ The application is not rewritten as part of init.
 
 `issues.provider: none` accepts issue-style keys (e.g. `ENG-42`) without API calls; `gitwo new develop` creates sequential standalone experiment worktrees.
 
+## Frontend inventory (read-only)
+
+`gitwo detect --json` and `gitwo init` now inventory independent Rails frontend
+pipelines: Vite/vite_rails, legacy Webpacker, Shakapacker, Webpack/Rspack,
+jsbundling-rails esbuild, CSS bundlers/watchers and Importmap. Multiple pipelines
+may coexist in one checkout. Static evidence includes gem declarations, safe
+package.json metadata, Procfile.dev process names and conventional config
+filenames; application code, package scripts and lifecycle hooks are **never
+executed**. Symlinked files are ignored.
+
+The `detected.frontend.value.pipelines` array reports integration, bundler,
+mode (`dev_server`, `watcher`, `build_only`, `no_build` or `unknown`),
+process names, evidence, confidence, and explicit unverified readiness.
+`notices` distinguishes unverified HMR for dev servers from initial-build
+verification for watchers. An esbuild watcher or Importmap project **does not
+need an HMR check**. A detected frontend is not proof that Gitwo can start it
+or that its build assets are ready; supervision and real readiness remain
+tracked under [#19](https://github.com/gitwohq/gitwo-v2/issues/19).
+
 ## Runtime launcher (Rails, bin/dev, Foreman and Overmind)
 
 `gitwo up` now selects the existing project development launcher:

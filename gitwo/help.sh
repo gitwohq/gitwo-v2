@@ -37,7 +37,7 @@ Tools:
   config scope|use local|team    Inspect or change active configuration
   onboard [--scope=...]         Validate scoped configuration and prerequisites
   onboard [--scope=local|team]  Validate local (default) or committed team config
-  detect [--json]               Inspect repo/framework/workflow without changes
+  detect [--json]               Inspect Rails, frontend pipelines and workflow read-only
   workspace adopt [WORKSPACE]   Inspect/adopt an existing database
   services <up|down|status> ... Control per-workspace native/Compose dependencies
   redis MODE [WORKSPACE]        Start/stop/check workspace Redis
