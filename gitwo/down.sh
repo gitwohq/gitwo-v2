@@ -12,9 +12,17 @@ gitwo_check_source
 target="$(gitwo_resolve_path "${1:-}")"
 branch="$(git -C "$target" branch --show-current)"
 gitwo_verify_target "$target" "$branch"
-# Do not stop unknown processes based solely on an untrusted file.
-gitwo_sidekiq_stop "$target" || gitwo_die "Could not stop Sidekiq safely"
-gitwo_puma_stop "$target" || gitwo_die "Refusing to stop an unverified Puma process"
+# Detached launchers use a private process group, owned by a verified
+# supervisor. Do not also terminate unrelated user-started Puma/Sidekiq.
+supervisor_dir="$(_gitwo_runtime_dir "$target")"
+if [[ -f "$supervisor_dir/supervisor.json" || -L "$supervisor_dir/supervisor.json" ]]; then
+  ruby "$GITWO_DIR/supervisor.rb" stop "$target" "$supervisor_dir" ||
+    gitwo_die 'Could not safely stop supervised development processes'
+else
+  # Backward compatible foreground/standalone launchers.
+  gitwo_sidekiq_stop "$target" || gitwo_die "Could not stop Sidekiq safely"
+  gitwo_puma_stop "$target" || gitwo_die "Refusing to stop an unverified Puma process"
+fi
 if gitwo_runtime_existing_load "$target"; then
   if [[ "$GITWO_SERVICES_BACKEND" == native ]]; then gitwo_need redis-cli; fi
   gitwo_redis_stop "$target" development
