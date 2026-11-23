@@ -34,7 +34,7 @@ module GitwoFrontendDetection
 
   def package_metadata(root)
     raw = read(root, 'package.json')
-    return [{}, {}, nil] if raw.nil?
+    return [[], {}, nil] if raw.nil?
 
     object = JSON.parse(raw)
     return [{}, {}, 'package.json is not a JSON object'] unless object.is_a?(Hash)
