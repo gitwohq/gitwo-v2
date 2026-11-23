@@ -76,14 +76,18 @@ Usage: gitwo new feature [NAME|ISSUE] [OPTIONS]
 EOF
     ;;
   up) cat <<'EOF'
-Usage: gitwo up [WORKSPACE] [--launcher=auto|rails|bin-dev|foreman|overmind] [--dry-run] [--json]
+Usage: gitwo up [WORKSPACE] [--launcher=auto|rails|bin-dev|foreman|overmind] [--dry-run] [--detach] [--json]
 Detect and invoke the project's existing development launcher with isolated databases,
 Redis, PORT and Portless HTTPS (or a reserved direct HTTP port).
 Default selection: executable bin/dev, otherwise Procfile.dev via installed
 Overmind/Foreman, otherwise Rails server. Explicit --launcher=rails overrides.
 --dry-run [--json] inspects the plan without starting services.
 --json emits one machine-readable startup event; server logs go to stderr.
-Launching a running app is foreground-only. Stop with Ctrl-C.
+Foreground mode stops with Ctrl-C. Opt-in --detach starts an owned
+process-group supervisor and returns status: starting (NOT ready).
+Only Rails, bin/dev and Foreman support detached mode; Overmind/tmux is
+refused until a verified session adapter is available.
+Use gitwo status for supervision state and gitwo down for safe group stop.
 Vite HMR may require application-specific configuration behind HTTPS.
 Existing databases are never automatically overwritten; non-TTY adoption is refused.
 EOF
@@ -102,9 +106,9 @@ EOF
   checkout|co|switch) printf 'Usage: gitwo checkout [WORKSPACE]\nChange to feature worktree; prompts if ambiguous and interactive.\n' ;;
   base) printf 'Usage: gitwo base\nChange to the configured permanent source checkout.\n' ;;
   list|ls) printf 'Usage: gitwo list [--json]\nList linked Git worktrees.\n' ;;
-  down) printf 'Usage: gitwo down [WORKSPACE]\nStop verified Puma, Sidekiq, and Redis. Do not stop shared Portless.\n' ;;
+  down) printf 'Usage: gitwo down [WORKSPACE]\nStop an owned detached dev process group, or verified standalone Puma/Sidekiq and Redis. Shared Portless remains running.\n' ;;
   logs) cat <<'EOF'
-Usage: gitwo logs [WORKSPACE] [--service=puma|rails|redis|sidekiq|all] [--lines=N] [-f|--follow]
+Usage: gitwo logs [WORKSPACE] [--service=supervisor|puma|rails|redis|sidekiq|all] [--lines=N] [-f|--follow]
 Read only; no processes started.
 EOF
     ;;
