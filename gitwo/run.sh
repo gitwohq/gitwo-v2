@@ -22,12 +22,12 @@ USAGE
 }
 if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then usage; exit 0; fi
 [[ $# -ge 1 ]] || { usage; exit 2; }
-selector='' requested_launcher="${GITWO_LAUNCHER:-auto}" preview=no format=text
+selector='' requested_launcher="${GITWO_LAUNCHER:-auto}" explicit_launcher=no preview=no format=text
 # Parse the optional workspace and server flags before the run mode. This
 # preserves the existing `gitwo up [WORKSPACE]` and `gitwo run ...` contracts.
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --launcher=*) requested_launcher="${1#*=}"; shift ;;
+    --launcher=*) requested_launcher="${1#*=}"; explicit_launcher=yes; shift ;;
     --dry-run) preview=yes; shift ;;
     --json) format=json; shift ;;
     --help|-h) usage; exit 0 ;;
@@ -46,7 +46,7 @@ while [[ $# -gt 0 ]]; do
 done
 [[ $# -ge 1 ]] || { usage; exit 2; }
 what="$1"; shift
-if [[ "$what" != server && ( "$preview" == yes || "$format" == json || "$requested_launcher" != auto ) ]]; then
+if [[ "$what" != server && ( "$preview" == yes || "$format" == json || "$explicit_launcher" == yes ) ]]; then
   gitwo_die 'Launcher, dry-run and JSON flags are supported only for gitwo up / server'
 fi
 gitwo_need git
