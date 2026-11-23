@@ -246,7 +246,8 @@ module GitwoSupervisor
     stopping = false
     Signal.trap('TERM') { stopping = true }
     Signal.trap('INT') { stopping = true }
-    child = Process.spawn('bash', runner, workspace, "--launcher=#{launcher}", 'server', *arguments,
+    child = Process.spawn({ 'GITWO_SUPERVISED_CHILD' => session }, 'bash', runner,
+                          workspace, "--launcher=#{launcher}", 'server', *arguments,
                           chdir: workspace)
     status = nil
     begin
