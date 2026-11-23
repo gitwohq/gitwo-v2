@@ -322,6 +322,45 @@ grep -Fq 'REDIS_URL=redis://' "$work/bin-dev-runtime.env"
 "$cli" down develop-1
 wait "$server_pid" >/dev/null 2>&1 || true
 server_pid=''
+
+# Prove that opt-in supervised bin/dev starts a real Rails server, survives the
+# invoking CLI exit and stops the verified workspace process group.
+"$cli" up develop-1 --launcher=bin-dev --detach --json > "$work/supervised-start.json"
+ruby -rjson -e '
+  x=JSON.parse(File.read(ARGV.fetch(0)))
+  abort x.inspect unless x["status"]=="starting" && x["readiness"]=="not_verified" &&
+    x["launcher"]=="bin-dev" && x["pid"].is_a?(Integer) && x["log"].end_with?("supervisor.log")
+' "$work/supervised-start.json"
+if "$cli" up develop-1 --launcher=bin-dev --detach --json > "$work/duplicate-start.out" 2> "$work/duplicate-start.err"; then
+  echo 'Duplicate detached launcher unexpectedly succeeded' >&2; exit 1
+fi
+supervised_ready=no
+for ((attempt=0;attempt<100;attempt++)); do
+  if [[ "$GITWO_PROXY" == portless ]]; then
+    if curl --fail --silent --max-time 2 --cacert "$HOME/.portless/ca.pem" "$("$cli" open develop-1 --print)/" | grep -qx 'gitwo-e2e-ok'; then
+      supervised_ready=yes; break
+    fi
+  else
+    port="$(awk -F= '$1=="WEB_PORT" {print $2}' "$ports_file")"
+    if curl --fail --silent --max-time 2 "http://127.0.0.1:${port}/" | grep -qx 'gitwo-e2e-ok'; then
+      supervised_ready=yes; break
+    fi
+  fi
+  if ! "$cli" status develop-1 --json > "$work/supervised-status.json" 2>/dev/null; then
+    cat "$work/supervised-status.json" >&2; exit 1
+  fi
+  sleep 1
+done
+[[ "$supervised_ready" == yes ]] || { "$cli" logs develop-1 --service=supervisor --lines=100 >&2 || true; echo 'Detached Rails launcher not healthy' >&2; exit 1; }
+"$cli" status develop-1 --json > "$work/supervised-status.json"
+ruby -rjson -e '
+  x=JSON.parse(File.read(ARGV.fetch(0)))
+  abort x.inspect unless x["dev_stack"].start_with?("running (supervised PID")
+' "$work/supervised-status.json"
+"$cli" down develop-1
+"$cli" status develop-1 --json > "$work/supervised-stopped.json"
+ruby -rjson -e 'x=JSON.parse(File.read(ARGV[0])); abort x.inspect unless x["dev_stack"]=="exited"' "$work/supervised-stopped.json"
+
 if [[ "$had_bin_dev" == yes ]]; then
   mv "$work/original-bin-dev" "$first/bin/dev"
 else
