@@ -3,7 +3,8 @@
 # This adapter is also invoked after Portless assigns PORT to the child process.
 
 gitwo_launcher_detect() {
-  local root="$1" requested="${2:-auto}" procfile="$root/Procfile.dev" has_dev=no
+  local root="$1" requested="${2:-auto}" procfile has_dev=no
+  procfile="$root/Procfile.dev"
   [[ "$requested" == auto || "$requested" == rails || "$requested" == bin-dev ||
      "$requested" == foreman || "$requested" == overmind ]] ||
     { printf 'Unsupported launcher: %s\n' "$requested" >&2; return 2; }
