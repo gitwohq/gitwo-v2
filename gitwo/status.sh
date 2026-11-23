@@ -168,6 +168,14 @@ else
   field Redis 'invalid runtime metadata'
   failed=1
 fi
+supervisor_dir="$(_gitwo_runtime_dir "$target")"
+if [[ -f "$supervisor_dir/supervisor.json" || -L "$supervisor_dir/supervisor.json" ]]; then
+  supervised="$(ruby "$GITWO_DIR/supervisor.rb" status "$target" "$supervisor_dir")" ||
+    failed=1
+  field 'Dev stack' "${supervised:-unverified supervisor metadata}"
+else
+  field 'Dev stack' 'not supervised'
+fi
 field Puma "$(gitwo_puma_status "$target")"
 sidekiq_pids="$(gitwo_sidekiq_pids "$target")"
 if [[ -n "$sidekiq_pids" ]]; then field Sidekiq "running (PID $sidekiq_pids)"; else field Sidekiq stopped; fi
