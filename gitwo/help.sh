@@ -25,7 +25,7 @@ Workspace:
   base                           Change to the permanent develop worktree
   list [--json]                  List local Git worktrees (alias: ls)
   status [WORKSPACE] [--json]    Read-only Git, DB and runtime status
-  up [WORKSPACE]                 Safely prepare and run the detected development launcher
+  up [WORKSPACE]                 Prepare and run or detach an owned development launcher
   down [WORKSPACE]               Stop verified workspace-owned processes
   logs [WORKSPACE] [OPTIONS]     Read or follow service logs
   remove [WORKSPACE] [OPTIONS]   Safely remove a worktree (DBs retained by default)
