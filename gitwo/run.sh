@@ -105,7 +105,12 @@ case "$what" in
     if [[ -f "$log_dir/supervisor.json" || -L "$log_dir/supervisor.json" ]]; then
       managed="$(ruby "$GITWO_DIR/supervisor.rb" status "$target" "$log_dir")" ||
         gitwo_die 'Unverified supervisor state; refusing duplicate launcher'
-      [[ "$managed" != running* ]] || gitwo_die "Supervised launcher already running: $managed"
+      if [[ -n "${GITWO_SUPERVISED_CHILD:-}" ]]; then
+        ruby "$GITWO_DIR/supervisor.rb" verify-child "$target" "$log_dir" "$GITWO_SUPERVISED_CHILD" ||
+          gitwo_die 'Detached child does not match the active supervisor session'
+      else
+        [[ "$managed" != running* ]] || gitwo_die "Supervised launcher already running: $managed"
+      fi
     fi
     current_puma="$(gitwo_puma_status "$target")"
     case "$current_puma" in
