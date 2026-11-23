@@ -23,7 +23,15 @@ module GitwoSupervisor
     directory.split('/').reject(&:empty?).each do |part|
       raise Refusal, 'Unsafe supervisor directory component' if part == '..' || part == '.'
       current = File.join(current, part)
-      raise Refusal, "Symlink in supervisor directory: #{current}" if File.symlink?(current)
+      if File.symlink?(current)
+        # macOS ships root-owned /var and /tmp aliases into /private.
+        # Allow these exact OS aliases, never user-owned redirects.
+        system_alias = %w[/var /tmp].include?(current) &&
+          File.lstat(current).uid.zero? &&
+          File.realpath(current) == "/private#{current}" &&
+          File.stat('/private').uid.zero?
+        raise Refusal, "Symlink in supervisor directory: #{current}" unless system_alias
+      end
     end
     FileUtils.mkdir_p(directory, mode: 0700) if create
     return false unless File.directory?(directory)
