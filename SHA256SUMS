@@ -89,5 +89,5 @@ d7be6d30cd8f218b5acf1526d704948faad3001fdd036ffbb4cec915fbb7fb2e  ./scripts/pack
 ce5a95f59c7cdc5ab28b1020bdcde3c9c845da87a103cb89bef0435209f63198  ./tests/e2e/rails-postgres.sh
 1b4d7ebdd5ffc2ffc1a0bcc1e481fbbfdfaf664da056e96f38fbb27af616c6ff  ./tests/test-release-package.sh
 3631520f5c33cd496fb94b028ae6d29a9de7999ae75f62e5bc20ff3c7bb87590  ./gitwo/test-rails-standard.sh
-9f77e39c0374c8e3b0dcee8aa3a116cacc33946f0343f6e225974749f60b2725  ./gitwo/_launcher.sh
+46689a346709178eb333026a877415e30cb60ca2341f0b29ad944b8e21f04a50  ./gitwo/_launcher.sh
 ec139a1823ce0495aeff984273ebee342c873b7d9f315048d9f30812939693f9  ./gitwo/test-launcher.sh
