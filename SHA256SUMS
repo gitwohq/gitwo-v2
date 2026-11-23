@@ -93,5 +93,5 @@ e87030d2c9bf63bd7606a4b3214d95ae9ba81f4804e81432bd78db2d04033e5a  ./tests/e2e/ra
 8279035ef278b009b8cb0315a7d411d41c75e6bf1e9897ded03ee2f56de3b909  ./gitwo/test-launcher.sh
 db769db57029e473e49d66acf5ff248cf486f3de1fad4a3de4d8a1426ce973a3  ./gitwo/frontend-detection.rb
 06f9ae684fa0ef98ab1ad6c09d55a388929cd740cf88b635b7a98acbf4a5136c  ./gitwo/test-frontend-detection.rb
-d9c1314063f4dfbd81783b54c204a071a3808c06561a494a5b66cad492979368  ./gitwo/supervisor.rb
+3f528ed9dac2d9a8d9b38c9a1fb03672be312c2f92de16d613f0a5555e7d4b6a  ./gitwo/supervisor.rb
 1227d6f66102d220e5c3a94c00feeb04def743646c3d5c7d3cb2b4796e5ec0ac  ./gitwo/test-supervisor.rb
