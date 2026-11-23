@@ -87,6 +87,14 @@ if gitwo_launcher_detect "$tmp/app" overmind > "$tmp/no-web" 2>&1; then
   echo 'Process manager accepted a Procfile without a web process' >&2; exit 1
 fi
 grep -Fq 'no web process' "$tmp/no-web"
+cat > "$tmp/app/Procfile.dev" <<'PROC'
+worker: bundle exec sidekiq
+web: bin/rails server -p "$PORT"
+PROC
+if gitwo_launcher_detect "$tmp/app" foreman > "$tmp/web-second" 2>&1; then
+  echo 'Process manager accepted web as the second port' >&2; exit 1
+fi
+grep -Fq 'must list web first' "$tmp/web-second"
 printf 'web: bin/rails server\n' > "$tmp/app/Procfile.dev"
 ln -s /tmp/nonexistent "$tmp/app/bin/dev"
 if gitwo_launcher_detect "$tmp/app" > "$tmp/unsafe" 2>&1; then
