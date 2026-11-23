@@ -86,7 +86,7 @@ d7be6d30cd8f218b5acf1526d704948faad3001fdd036ffbb4cec915fbb7fb2e  ./scripts/pack
 3c7777cf06f16a1acc80f39a8b201e64dc19c66c05ee34985c065fbc1ffe9f37  ./SECURITY.md
 09349858c2085896575b3cec80a0e7a23f183debf66b47b6e24cc4def05b9196  ./test-installer.sh
 8d2f8b23f78c60e887768876ce4f4716c9aa6a5ed3f49247a39896d0feaba81f  ./tests/check-dependencies.sh
-e87030d2c9bf63bd7606a4b3214d95ae9ba81f4804e81432bd78db2d04033e5a  ./tests/e2e/rails-postgres.sh
+553f73c1148531976391c9fd0498e9ea58eac388f459f97749de6481d2f912e4  ./tests/e2e/rails-postgres.sh
 1b4d7ebdd5ffc2ffc1a0bcc1e481fbbfdfaf664da056e96f38fbb27af616c6ff  ./tests/test-release-package.sh
 3631520f5c33cd496fb94b028ae6d29a9de7999ae75f62e5bc20ff3c7bb87590  ./gitwo/test-rails-standard.sh
 01affd4cffe294c95fd5166b9c45f27944af1d1f6c3670071741138ec1adc4be  ./gitwo/_launcher.sh
