@@ -118,9 +118,9 @@ Dir.mktmpdir('gitwo-frontend.') do |tmp|
                                          'detect', "--project=#{vite}")
   assert(status.success? && stderr.include?('Frontend dev server detected'), 'detect CLI missing frontend notice')
   assert(stdout.include?('frontend'), 'detect CLI missing frontend evidence')
-  stdout, stderr, status = Open3.capture3('ruby', File.join(__dir__, 'onboard.rb'),
-                                         'init', '--scope=local', "--project=#{vite}", '--yes',
-                                         { 'HOME' => tmp, 'XDG_CONFIG_HOME' => File.join(tmp, 'xdg') })
+  stdout, stderr, status = Open3.capture3({ 'HOME' => tmp, 'XDG_CONFIG_HOME' => File.join(tmp, 'xdg') },
+                                         'ruby', File.join(__dir__, 'onboard.rb'),
+                                         'init', '--scope=local', "--project=#{vite}", '--yes')
   assert(status.success? && stderr.include?('Frontend dev server detected'), 'init CLI missing HMR notice')
 
   webpacker = project(tmp, 'webpacker', {
