@@ -123,8 +123,8 @@ gitwo() {
       ;;
     up)
       if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
-        print -- 'Usage: gitwo up [WORKSPACE]'
-        print -- 'Prepare (with safe adoption confirmation) and launch Rails + Redis via Portless.'
+        print -- 'Usage: gitwo up [WORKSPACE] [--launcher=auto|rails|bin-dev|foreman|overmind] [--dry-run] [--json]'
+        print -- 'Run the existing development launcher with isolated Rails/Redis and optional Portless.'
         return 0
       fi
       "$GITWO_LOCAL_DIR/run.sh" "$@" server
