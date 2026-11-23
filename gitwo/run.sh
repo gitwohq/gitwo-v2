@@ -115,7 +115,7 @@ case "$what" in
       if [[ "$format" == json ]]; then
         RAILS_DEVELOPMENT_HOSTS="${RAILS_DEVELOPMENT_HOSTS:+${RAILS_DEVELOPMENT_HOSTS},}${allowed_host}" \
           GITWO_APP_HOST="$allowed_host" GITWO_APP_URL="$(gitwo_web_url "$target")" \
-          gitwo_rails development portless "$name" "$GITWO_DIR/_launcher.sh" exec "$launcher" "$@" 1>&2 2>&1 | tee -a "$log_dir/puma.log" >&2
+          gitwo_rails development portless "$name" "$GITWO_DIR/_launcher.sh" exec "$launcher" "$@" 2>&1 | tee -a "$log_dir/puma.log" >&2
       else
         RAILS_DEVELOPMENT_HOSTS="${RAILS_DEVELOPMENT_HOSTS:+${RAILS_DEVELOPMENT_HOSTS},}${allowed_host}" \
           GITWO_APP_HOST="$allowed_host" GITWO_APP_URL="$(gitwo_web_url "$target")" \
@@ -131,7 +131,7 @@ case "$what" in
         GITWO_OUTPUT_WORKSPACE="$(basename "$target")" GITWO_OUTPUT_LAUNCHER="$launcher" \
           GITWO_OUTPUT_URL="http://localhost:$port" ruby -rjson -e 'puts JSON.generate({status: "starting", workspace: ENV.fetch("GITWO_OUTPUT_WORKSPACE"), launcher: ENV.fetch("GITWO_OUTPUT_LAUNCHER"), url: ENV.fetch("GITWO_OUTPUT_URL")})'
         GITWO_APP_HOST="localhost:$port" GITWO_APP_URL="http://localhost:$port" PORT="$port" \
-          gitwo_rails development "$GITWO_DIR/_launcher.sh" exec "$launcher" "$@" 1>&2 2>&1 | tee -a "$log_dir/puma.log" >&2
+          gitwo_rails development "$GITWO_DIR/_launcher.sh" exec "$launcher" "$@" 2>&1 | tee -a "$log_dir/puma.log" >&2
       else
         GITWO_APP_HOST="localhost:$port" GITWO_APP_URL="http://localhost:$port" PORT="$port" \
           gitwo_rails development "$GITWO_DIR/_launcher.sh" exec "$launcher" "$@" 2>&1 | tee -a "$log_dir/puma.log"
