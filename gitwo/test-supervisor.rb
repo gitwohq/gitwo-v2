@@ -79,7 +79,8 @@ Dir.mktmpdir('gitwo-supervisor.') do |tmp|
   await { JSON.parse(invoke(supervisor, 'status', workspace_a, state_a, 'json')[0])['status'] == 'exited' }
   assert(JSON.parse(invoke(supervisor, 'status', workspace_b, state_b, 'json')[0])['status'] == 'running',
          'stopping one worktree affected another')
-  assert(!Process.kill(0, child_a) rescue true, 'owned worker survives shutdown')
+  worker_stat = IO.popen(['ps', '-p', child_a.to_s, '-o', 'stat='], &:read).to_s.strip
+  assert(worker_stat.empty? || worker_stat.start_with?('Z'), 'owned worker survives shutdown')
 
   # Live foreign PID metadata must never authorize a signal.
   record_b = File.join(state_b, 'supervisor.json')
