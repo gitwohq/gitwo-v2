@@ -190,6 +190,37 @@ selected Ruby's `bin/` directory to `PATH` without altering tracked files.
 - If direnv is not installed, direct commands are **not** claimed isolated;
   install/approve direnv before running destructive Rails DB tasks.
 
+## Frontend toolchain detection during onboarding
+
+Before choosing how a workspace is launched, inspect:
+
+```sh
+gitwo detect --json
+gitwo init --dry-run --json
+```
+
+Look for `detected.frontend.value.pipelines`. Gitwo identifies Vite,
+Webpacker, Shakapacker, Webpack/Rspack, jsbundling-rails esbuild,
+cssbundling-rails/Tailwind, and Importmap from read-only repository evidence.
+Each entry includes `integration`, `bundler`, `mode`, `processes`,
+`evidence`, `confidence`, `readiness` and `hmr`. It can report multiple
+pipelines (for example, Webpack and esbuild in the same application).
+
+Modes are intentionally different:
+- `dev_server`: a development asset server was inferred. The separate asset
+  host, WebSocket and HMR are **not verified** by filename inspection.
+- `watcher`: a build watcher was inferred. It needs initial compilation or
+  artifact validation, **not automatically an HMR/WebSocket check**.
+- `build_only`: compilation was detected but a long-running process was not.
+- `no_build`: Importmap can operate without an external JS bundler.
+- `unknown`: more information is needed to safely decide how it runs.
+
+Human onboarding prints concise pipeline summaries and notice messages.
+Agents receive the same information in `--json`. This discovery step never
+executes application package scripts, invokes npm/yarn/pnpm/bun, installs
+dependencies or modifies tracked application files. It does not yet guarantee
+frontend process supervision or asset readiness; see issue #19.
+
 ## Managed Rails runtime launcher
 
 `gitwo up` uses the project's existing development entrypoint when available.
