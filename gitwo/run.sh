@@ -69,7 +69,13 @@ if [[ "$what" == server ]]; then
   # An agent must never wait at a database-adoption question.
   if [[ "$format" == json || ! -t 0 ]]; then export GITWO_NON_INTERACTIVE=1; fi
   gitwo_need mise
-  gitwo_up_prepare "$target"
+  # A first-time setup or legacy metadata recovery can write to stdout.
+  # Keep stdout strictly machine-readable for the headless startup event.
+  if [[ "$format" == json ]]; then
+    gitwo_up_prepare "$target" 1>&2
+  else
+    gitwo_up_prepare "$target"
+  fi
 else
   gitwo_need mise
 fi
