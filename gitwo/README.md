@@ -82,6 +82,29 @@ need an HMR check**. A detected frontend is not proof that Gitwo can start it
 or that its build assets are ready; supervision and real readiness remain
 tracked under [#19](https://github.com/gitwohq/gitwo-v2/issues/19).
 
+## Detached process supervision (opt-in)
+
+`gitwo up --detach --json` launches a private process group owned by an
+independent Ruby supervisor. It returns a `starting` JSON event with workspace,
+launcher, PID, URL and an owner-private log path, **not** an HTTP/HMR readiness
+claim. `gitwo status [WORKSPACE] --json` reports the observed dev-stack
+supervision state, `gitwo logs --service=supervisor` shows captured output,
+and `gitwo down` terminates only the verified supervised process group before
+stopping its workspace services.
+
+A PID alone never authorizes a signal: Gitwo also validates process-group
+leadership, process start identity and a per-session token. Duplicate starts,
+foreign live PIDs, symlinked or malformed metadata, and stale/orphaned state
+fail closed without force-killing unknown processes.
+
+Detached mode currently supports Rails, Foreman and `bin/dev` that keep
+children in the launcher's process group. Detached Overmind is explicitly
+refused because tmux sessions may live outside that group. Foreground mode,
+ordinary Rails commands and manually started services remain available.
+Process-group escape by arbitrary scripts cannot be safely supervised by this
+adapter; full Overmind session ownership and automatic recovery stay in #19.
+The returned `starting` event never guarantees frontend build/HMR readiness.
+
 ## Runtime launcher (Rails, bin/dev, Foreman and Overmind)
 
 `gitwo up` now selects the existing project development launcher:
