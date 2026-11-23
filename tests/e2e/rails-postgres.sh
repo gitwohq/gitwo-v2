@@ -358,8 +358,13 @@ ruby -rjson -e '
   abort x.inspect unless x["dev_stack"].start_with?("running (supervised PID")
 ' "$work/supervised-status.json"
 "$cli" down develop-1
-"$cli" status develop-1 --json > "$work/supervised-stopped.json"
-ruby -rjson -e 'x=JSON.parse(File.read(ARGV[0])); abort x.inspect unless x["dev_stack"]=="exited"' "$work/supervised-stopped.json"
+# After managed Compose down, PostgreSQL is intentionally unavailable and
+# the overall workspace status can be degraded. Verify supervision separately.
+"$cli" status develop-1 --json > "$work/supervised-stopped.json" || true
+ruby -rjson -e '
+  x=JSON.parse(File.read(ARGV[0]))
+  abort "Supervised process group did not exit: #{x.inspect}" unless x["dev_stack"]=="exited"
+' "$work/supervised-stopped.json"
 
 if [[ "$had_bin_dev" == yes ]]; then
   mv "$work/original-bin-dev" "$first/bin/dev"
