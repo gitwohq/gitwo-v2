@@ -3,6 +3,7 @@
 require 'json'
 require 'pathname'
 require 'open3'
+require_relative 'frontend-detection'
 
 module GitwoDetection
   module_function
@@ -136,9 +137,13 @@ module GitwoDetection
         end
       end
     end
+    # Read-only frontend discovery identifies independent JS/CSS pipelines,
+    # not a guessed single bundler or an assumed HMR setup.
+    frontend, frontend_notices = GitwoFrontendDetection.discover(repo, gemfile: gemfile, lock: lock)
+
     # Stable, machine-readable notices for developers and headless agents.
     # Discovery never implies that a detected runtime is configured to launch.
-    notices = []
+    notices = frontend_notices.dup
     unless compose_files.empty?
       notices << {
         'code' => 'project_compose_not_configured',
@@ -197,6 +202,7 @@ module GitwoDetection
         'database_config' => observed(database_config_ownership(repo), 'Git tracked/ignored filesystem status, without reading database values', 'high'),
         'sidekiq' => observed(!!sidekiq, sidekiq ? 'Gemfile.lock / config/sidekiq.yml' : 'not detected', sidekiq ? 'high' : 'low'),
         'redis' => observed(!!redis, redis ? 'Gemfile.lock / Sidekiq / config' : 'not detected', redis ? 'medium' : 'low'),
+        'frontend' => observed(frontend, 'Gemfile.lock / Gemfile, package.json, Procfile.dev and configuration filenames only; no commands executed', frontend['pipelines'].empty? ? 'low' : 'high'),
         'compose_files' => observed(compose_files, compose_files.empty? ? 'no Compose file at repository root' : 'repository root filename inspection only', compose_files.empty? ? 'low' : 'high'),
         'devcontainer_files' => observed(devcontainer_files, 'Dev Container definitions by filename only; no files executed', devcontainer_files.empty? ? 'low' : 'high'),
         'devcontainer_compose_files' => observed(devcontainer_compose_files, 'Dev Container Compose filenames only; no files executed', devcontainer_compose_files.empty? ? 'low' : 'high'),
