@@ -91,7 +91,9 @@ Dir.mktmpdir('gitwo-frontend.') do |tmp|
   assert(frontend(p)['mode'] == 'mixed', 'multiple pipelines not represented')
   assert(!frontend(p)['ambiguous'], 'known watcher modes should not be ambiguous')
   assert(frontend(p)['processes'] == %w[css js web], 'lost Procfile process names')
-  assert(p['notices'].empty?, 'esbuild watcher incorrectly triggers HMR notice')
+  notice(p, 'frontend_watcher_not_verified', 'detected_not_configured')
+  assert(p['notices'].none? { |n| n['code'] == 'frontend_hmr_not_verified' },
+         'esbuild watcher incorrectly triggers HMR notice')
   before = `git -C "#{esbuild}" status --porcelain --untracked-files=all`
   stdout, stderr, status = Open3.capture3('ruby', File.join(__dir__, 'onboard.rb'),
                                          'init', '--scope=local', "--project=#{esbuild}",
