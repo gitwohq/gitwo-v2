@@ -196,7 +196,9 @@ selected Ruby's `bin/` directory to `PATH` without altering tracked files.
 The deterministic selection order is an executable, non-symlinked `bin/dev`,
 then an explicit `Procfile.dev` using an installed Overmind or Foreman,
 and finally the standard `bundle exec rails server` fallback. A Procfile
-without a `web:` process is rejected. When a process manager is missing,
+without a `web:` process is rejected. For direct Foreman/Overmind launch,
+`web:` must be **first** because their `-p` base port is assigned to
+the first process, which is the port Portless routes. When a process manager is missing,
 Gitwo refuses to silently launch only Rails, since that would omit required
 processes. An explicit `--launcher=rails` override is available for debugging.
 
