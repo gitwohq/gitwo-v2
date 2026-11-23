@@ -7,7 +7,7 @@ d7c35aee4fff5546ae7583647f86b5f6a3528c91a399b36dd0d7e08af8462790  ./docs/configu
 37d53358524a02ed25aa37cb04ad1c8714357e0b92603a61df0ad280006f3f6c  ./docs/macos-acceptance.md
 28afefe5eb14fc1fbf127486057a345013202d407247caf638d224e447399002  ./docs/release-security-review.md
 3692782244dd7ecab5b0c42b06ac2f1ed5f38504cec39ee88053b46fea29048d  ./docs/team-onboarding.md
-ba9eb728ffc1756490b2db5450364d2a8c6b15523ef10b91f54a974a29f9705d  ./docs/workspace-activation.md
+937ba561d17ee26158cfcf6f9811b7d628fa6ca577170d4afc614c7d6a1c4dbe  ./docs/workspace-activation.md
 98b7c6f4208fce87df7f1941ad1f4dd7c4d99f4275b0a1233bda41bf1291b962  ./gitwo/_adapter.sh
 5fd222f74815e361968a1fa7eadac73b32c2ef3e7f29262ab09780f5285c6ed8  ./gitwo/_common.sh
 af51a31e2f0618aa4c0b099dcc3f484faf1d967b4efe9f0f93b728aaaa94e0f7  ./gitwo/_dumps.sh
@@ -58,7 +58,7 @@ d6e2a558ab2fbc31398a149d2826ccde42663c1e1ebeedefc883ce801b1041b6  ./gitwo/README
 53d0644fe705af0860b654fba793d3b466caef2f509e8d8e5e257429bb905e21  ./gitwo/redis.sh
 4658a3d6ed0fe6bebc4205eee689a4e6768c06b310b75a4fbb3c8a7d4aec5dc1  ./gitwo/remove.sh
 9d4de2575b958684310dba476fe464d9748fb5898fa9db44d5906371ed8a8a77  ./gitwo/repair.sh
-3e16cbf0255acbcd08d6b01b09272f941f22cc2ebef17d7b0b846263c2bfbfad  ./gitwo/run.sh
+b8dbe938528f947192ccec0da151f2b08fb559a3bd9570a40a00a8bd10584484  ./gitwo/run.sh
 a891f931fc8e25b97f58ca6cec4fd470a9b154160d071da961cbd1a1d56b4131  ./gitwo/services.sh
 b25a2fd06626d67170ecba856961e605ec6dc0dd5a17332fc02c55f782a90258  ./gitwo/setup.sh
 07fa6b45467cbcd9da42fcd4a8a4b566879e7eeb849335650f8f317ffbf7c096  ./gitwo/shell.zsh
@@ -89,5 +89,5 @@ d7be6d30cd8f218b5acf1526d704948faad3001fdd036ffbb4cec915fbb7fb2e  ./scripts/pack
 ce5a95f59c7cdc5ab28b1020bdcde3c9c845da87a103cb89bef0435209f63198  ./tests/e2e/rails-postgres.sh
 1b4d7ebdd5ffc2ffc1a0bcc1e481fbbfdfaf664da056e96f38fbb27af616c6ff  ./tests/test-release-package.sh
 3631520f5c33cd496fb94b028ae6d29a9de7999ae75f62e5bc20ff3c7bb87590  ./gitwo/test-rails-standard.sh
-46689a346709178eb333026a877415e30cb60ca2341f0b29ad944b8e21f04a50  ./gitwo/_launcher.sh
-ec139a1823ce0495aeff984273ebee342c873b7d9f315048d9f30812939693f9  ./gitwo/test-launcher.sh
+01affd4cffe294c95fd5166b9c45f27944af1d1f6c3670071741138ec1adc4be  ./gitwo/_launcher.sh
+8279035ef278b009b8cb0315a7d411d41c75e6bf1e9897ded03ee2f56de3b909  ./gitwo/test-launcher.sh
