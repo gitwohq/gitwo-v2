@@ -86,6 +86,12 @@ cd "$target"
 case "$what" in
   server)
     log_dir="$(_gitwo_runtime_dir "$target")"
+    current_puma="$(gitwo_puma_status "$target")"
+    case "$current_puma" in
+      stopped*) ;;
+      running*) gitwo_die "Puma already running for $(basename "$target"): $current_puma" ;;
+      *) gitwo_die "Cannot safely start server: $current_puma" ;;
+    esac
     if [[ "$detach" == yes ]]; then
       # A dedicated process-group leader owns the whole launcher session. It
       # verifies PID/start time/token before stopping any child processes.
@@ -112,13 +118,6 @@ case "$what" in
         [[ "$managed" != running* ]] || gitwo_die "Supervised launcher already running: $managed"
       fi
     fi
-    current_puma="$(gitwo_puma_status "$target")"
-    case "$current_puma" in
-      stopped*) ;;
-      running*) gitwo_die "Puma already running for $(basename "$target"): $current_puma" ;;
-      *) gitwo_die "Cannot safely start server: $current_puma" ;;
-    esac
-    log_dir="$(_gitwo_runtime_dir "$target")"
     [[ ! -L "$log_dir" ]] || gitwo_die "Unsafe runtime log directory: $log_dir"
     (umask 077; mkdir -p "$log_dir"; touch "$log_dir/puma.log")
     [[ -f "$log_dir/puma.log" && ! -L "$log_dir/puma.log" ]] || gitwo_die 'Unsafe Puma log path'
