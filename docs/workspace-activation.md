@@ -221,6 +221,40 @@ executes application package scripts, invokes npm/yarn/pnpm/bun, installs
 dependencies or modifies tracked application files. It does not yet guarantee
 frontend process supervision or asset readiness; see issue #19.
 
+## Owned detached process supervision
+
+The default `gitwo up` still runs in the foreground, preserving Ctrl-C
+handling by existing project launchers. Use detached mode explicitly:
+
+```sh
+gitwo up --detach --json
+gitwo status --json
+gitwo logs --service=supervisor --follow
+gitwo down
+```
+
+`--detach` works with Rails, Foreman or a `bin/dev` process that retains
+its child processes in the inherited process group. The Ruby supervisor
+starts its own process group and stores private, bounded JSON metadata
+under Gitwo's per-workspace runtime state. Before `down` signals that group,
+it checks its leader's PID, process start identity, command/session token,
+and expected workspace. Stale, malformed, symlinked or foreign records are
+not trusted, and Gitwo does not force-kill unknown processes. The shared
+Portless proxy is never stopped.
+
+`--detach --json` returns a **starting** event, not a readiness guarantee.
+Use `gitwo status --check-http` to independently check the app endpoint.
+Frontend watchers, HMR and WebSocket readiness are not yet verified.
+The detached supervisor deliberately does **not** manage an Overmind/tmux
+session: detached Overmind is rejected, and custom `bin/dev` scripts that
+escape their process group remain unsupported for reliable group shutdown.
+Never assume that killing a parent PID stops an arbitrary process tree.
+
+If a process group survives after the supervisor leader disappears, Gitwo
+fails closed and reports stale/orphaned metadata for manual investigation
+instead of risking signals to another workspace. Re-running `up` does not
+silently adopt these processes.
+
 ## Managed Rails runtime launcher
 
 `gitwo up` uses the project's existing development entrypoint when available.
