@@ -36,6 +36,9 @@ module GitwoSupervisor
     FileUtils.mkdir_p(directory, mode: 0700) if create
     return false unless File.directory?(directory)
     raise Refusal, 'Supervisor directory must belong to the current user' unless File.stat(directory).uid == Process.uid
+    # Other Gitwo-managed Compose helpers may already have created this
+    # directory with the system umask. Tighten it only during explicit start.
+    File.chmod(0700, directory) if create
     raise Refusal, 'Supervisor directory permissions too broad' unless File.stat(directory).mode & 077 == 0
     true
   end
