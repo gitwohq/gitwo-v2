@@ -206,7 +206,16 @@ class GitwoOnboard
   def display_findings(detection)
     puts "gitwo / project detection\n  Repository: #{detection['repository']}"
     detection.fetch('detected').each do |key, entry|
-      puts "  #{key.ljust(16)} #{entry['value'].inspect.ljust(15)} [#{entry['confidence']}] #{entry['source']}"
+      if key == 'frontend'
+        front = entry.fetch('value')
+        summary = front.fetch('pipelines').map do |p|
+          "#{p.fetch('integration')}/#{p.fetch('bundler')} (#{p.fetch('mode')})"
+        end
+        summary = ['not identified'] if summary.empty?
+        puts "  frontend         #{summary.join(', ')} [#{entry['confidence']}]"
+      else
+        puts "  #{key.ljust(16)} #{entry['value'].inspect.ljust(15)} [#{entry['confidence']}] #{entry['source']}"
+      end
     end
     inferred = detection.dig('inferred', 'workflow')
     puts "  #{'git workflow'.ljust(16)} #{inferred['value'].inspect.ljust(15)} [#{inferred['confidence']}] #{inferred['source']}"
