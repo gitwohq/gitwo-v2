@@ -327,6 +327,15 @@ module GitwoSupervisor
       raise Refusal, 'Usage: supervisor.rb serve WORKSPACE DIRECTORY RUNNER LAUNCHER URL SESSION [ARGS]' if ARGV.length < 6
       workspace, directory, runner, launcher, url, session, *args = ARGV
       serve(workspace, directory, runner, launcher, url, session, args)
+    when 'verify-child'
+      workspace, directory, session = ARGV
+      raise Refusal, 'Usage: supervisor.rb verify-child WORKSPACE DIRECTORY SESSION' unless
+        workspace && directory && session && ARGV.length == 3
+      verify_directory!(workspace, directory)
+      record = read_record(directory, workspace)
+      raise Refusal, 'Unverified supervised launcher session' unless record &&
+        record['session'] == session && verified?(record)
+      exit 0
     when 'exists'
       workspace, directory = ARGV
       raise Refusal, 'Usage: supervisor.rb exists WORKSPACE DIRECTORY' unless workspace && directory && ARGV.length == 2
