@@ -213,6 +213,15 @@ module GitwoFrontendDetection
         'message' => 'Frontend tooling detected but no reliable dev server/watcher mode was found. Review bin/dev, Procfile.dev and package scripts.'
       }
     end
+    watchers = detected.select { |p| p['mode'] == 'watcher' }
+    unless watchers.empty?
+      notices << {
+        'code' => 'frontend_watcher_not_verified',
+        'status' => 'detected_not_configured',
+        'files' => watchers.flat_map { |p| p['evidence'] }.uniq.sort,
+        'message' => 'Frontend build watcher detected, but Gitwo does not yet verify initial compilation or generated asset freshness. HMR is not required for this mode.'
+      }
+    end
     if detected.any? { |p| p['mode'] == 'dev_server' }
       notices << {
         'code' => 'frontend_hmr_not_verified',
