@@ -15,7 +15,7 @@ module GitwoSupervisor
 
   class Refusal < StandardError; end
 
-  def verify_directory!(workspace, directory)
+  def verify_directory!(workspace, directory, create: false)
     raise Refusal, 'Workspace must be an existing absolute directory' unless
       workspace.start_with?('/') && File.directory?(workspace) && !File.symlink?(workspace)
     raise Refusal, 'Supervisor directory must be absolute' unless directory.start_with?('/')
@@ -25,9 +25,11 @@ module GitwoSupervisor
       current = File.join(current, part)
       raise Refusal, "Symlink in supervisor directory: #{current}" if File.symlink?(current)
     end
-    FileUtils.mkdir_p(directory, mode: 0700)
+    FileUtils.mkdir_p(directory, mode: 0700) if create
+    return false unless File.directory?(directory)
     raise Refusal, 'Supervisor directory must belong to the current user' unless File.stat(directory).uid == Process.uid
-    File.chmod(0700, directory)
+    raise Refusal, 'Supervisor directory permissions too broad' unless File.stat(directory).mode & 077 == 0
+    true
   end
 
   def state_path(directory)
@@ -138,7 +140,7 @@ module GitwoSupervisor
       }
     else
       {
-        'status' => record['status'] == 'exited' ? 'exited' : 'stale',
+        'status' => record['status'] == 'exited' ? 'exited' : (record['status'] == 'orphaned' ? 'orphaned' : 'stale'),
         'exit_code' => record['exit_code'],
         'launcher' => record['launcher']
       }
@@ -159,7 +161,9 @@ module GitwoSupervisor
   end
 
   def group_members(pgid)
-    ps = IO.popen(['ps', '-axo', 'pid=,pgid=,stat='], &:read).to_s
+    # Spawn ps outside the supervised group. Otherwise its own PID makes the
+    # group appear permanently active while we inspect it.
+    ps = IO.popen(['ps', '-axo', 'pid=,pgid=,stat='], 'r', pgroup: true, &:read).to_s
     ps.each_line.filter_map do |line|
       pid, group, stat = line.split
       pid.to_i if group.to_i == pgid && pid.to_i != pgid && !stat.to_s.start_with?('Z')
@@ -167,7 +171,7 @@ module GitwoSupervisor
   end
 
   def start(workspace, directory, runner, launcher, url, format, arguments)
-    verify_directory!(workspace, directory)
+    verify_directory!(workspace, directory, create: true)
     raise Refusal, 'Runner must be an existing absolute script' unless runner.start_with?('/') && File.file?(runner)
     raise Refusal, 'Unsupported detached launcher' unless %w[rails bin-dev foreman].include?(launcher)
     raise Refusal, 'Invalid URL' unless url.start_with?('https://', 'http://')
@@ -176,6 +180,9 @@ module GitwoSupervisor
       if previous && leader_present?(previous)
         raise Refusal, verified?(previous) ? 'Workspace launcher already supervised and running' :
           'Supervisor PID is live but unverified; refusing to replace process identity'
+      end
+      if previous && previous['status'] != 'exited'
+        raise Refusal, 'Previous supervisor exited without verified cleanup; inspect orphaned/stale processes before restarting'
       end
       session = SecureRandom.hex(16)
       log = File.join(directory, 'supervisor.log')
@@ -220,7 +227,7 @@ module GitwoSupervisor
   end
 
   def serve(workspace, directory, runner, launcher, url, session, arguments)
-    verify_directory!(workspace, directory)
+    verify_directory!(workspace, directory, create: true)
     raise Refusal, 'Supervisor is not its process-group leader' unless Process.getpgid(0) == Process.pid
     record = {
       'version' => 1,
@@ -277,6 +284,9 @@ module GitwoSupervisor
       if leader_present?(record) && !verified?(record)
         raise Refusal, 'Supervisor process identity mismatch; refusing to signal a foreign process'
       end
+      if !leader_present?(record) && record['status'] != 'exited'
+        raise Refusal, 'Supervisor is stale or orphaned; refusing to claim safe shutdown without process ownership'
+      end
       if verified?(record)
         Process.kill('TERM', -record.fetch('pid'))
         120.times do
@@ -302,7 +312,7 @@ module GitwoSupervisor
            else result.fetch('status')
            end
     end
-    exit 2 if result['status'] == 'unverified'
+    exit 2 if %w[unverified orphaned stale].include?(result['status'])
   end
 
   def main
