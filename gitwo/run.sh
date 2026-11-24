@@ -10,7 +10,7 @@ usage() { cat >&2 <<'USAGE'
 Usage: run.sh [WORKSPACE|ENG-5303-feature-1] <server|test|minitest|rspec|rails|console|sidekiq> [args...]
   server    Start isolated Redis and the app's dev launcher via Portless or direct port
             Options before 'server': --launcher=auto|rails|bin-dev|foreman|overmind
-                                     --dry-run [--json] or --json (startup event)
+                                     --dry-run [--json], --json or --detach [--json]
   test      Auto-select Minitest or RSpec (errors if both are configured)
   minitest  Run Rails Minitest with isolated test PostgreSQL and Redis
   rspec     Run RSpec with isolated test PostgreSQL and Redis
@@ -22,13 +22,14 @@ USAGE
 }
 if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then usage; exit 0; fi
 [[ $# -ge 1 ]] || { usage; exit 2; }
-selector='' requested_launcher="${GITWO_LAUNCHER:-auto}" explicit_launcher=no preview=no format=text
+selector='' requested_launcher="${GITWO_LAUNCHER:-auto}" explicit_launcher=no preview=no detach=no format=text
 # Parse the optional workspace and server flags before the run mode. This
 # preserves the existing `gitwo up [WORKSPACE]` and `gitwo run ...` contracts.
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --launcher=*) requested_launcher="${1#*=}"; explicit_launcher=yes; shift ;;
     --dry-run) preview=yes; shift ;;
+    --detach) detach=yes; shift ;;
     --json) format=json; shift ;;
     --help|-h) usage; exit 0 ;;
     *)
@@ -46,9 +47,10 @@ while [[ $# -gt 0 ]]; do
 done
 [[ $# -ge 1 ]] || { usage; exit 2; }
 what="$1"; shift
-if [[ "$what" != server && ( "$preview" == yes || "$format" == json || "$explicit_launcher" == yes ) ]]; then
-  gitwo_die 'Launcher, dry-run and JSON flags are supported only for gitwo up / server'
+if [[ "$what" != server && ( "$preview" == yes || "$format" == json || "$explicit_launcher" == yes || "$detach" == yes ) ]]; then
+  gitwo_die 'Launcher, dry-run, detach and JSON flags are supported only for gitwo up / server'
 fi
+[[ "$preview" != yes || "$detach" != yes ]] || gitwo_die 'Cannot combine --dry-run with --detach'
 gitwo_need git
 gitwo_check_source
 target="$(gitwo_resolve_path "$selector")"
@@ -67,7 +69,7 @@ if [[ "$what" == server ]]; then
     exit 0
   fi
   # An agent must never wait at a database-adoption question.
-  if [[ "$format" == json || ! -t 0 ]]; then export GITWO_NON_INTERACTIVE=1; fi
+  if [[ "$format" == json || "$detach" == yes || ! -t 0 ]]; then export GITWO_NON_INTERACTIVE=1; fi
   gitwo_need mise
   # A first-time setup or legacy metadata recovery can write to stdout.
   # Keep stdout strictly machine-readable for the headless startup event.
@@ -83,13 +85,39 @@ gitwo_load_state "$target"; gitwo_db_settings; gitwo_ruby_version "$target"
 cd "$target"
 case "$what" in
   server)
+    log_dir="$(_gitwo_runtime_dir "$target")"
     current_puma="$(gitwo_puma_status "$target")"
     case "$current_puma" in
       stopped*) ;;
       running*) gitwo_die "Puma already running for $(basename "$target"): $current_puma" ;;
       *) gitwo_die "Cannot safely start server: $current_puma" ;;
     esac
-    log_dir="$(_gitwo_runtime_dir "$target")"
+    if [[ "$detach" == yes ]]; then
+      # A dedicated process-group leader owns the whole launcher session. It
+      # verifies PID/start time/token before stopping any child processes.
+      if [[ "$launcher" == overmind ]]; then
+        gitwo_die 'Detached Overmind uses tmux sessions outside the launcher process group; use foreground up until a verified Overmind session adapter exists'
+      fi
+      if [[ "${GITWO_PROXY:-none}" == portless ]]; then
+        url="$(gitwo_web_url "$target")"
+      else
+        gitwo_runtime_load "$target"
+        url="http://127.0.0.1:${GITWO_PORT:-$WEB_PORT}"
+      fi
+      ruby "$GITWO_DIR/supervisor.rb" start "$target" "$log_dir" "$GITWO_DIR/run.sh" "$launcher" "$url" "$format" "$@"
+      exit $?
+    fi
+    # An existing detached launcher must not be duplicated by a foreground up.
+    if [[ -f "$log_dir/supervisor.json" || -L "$log_dir/supervisor.json" ]]; then
+      managed="$(ruby "$GITWO_DIR/supervisor.rb" status "$target" "$log_dir")" ||
+        gitwo_die 'Unverified supervisor state; refusing duplicate launcher'
+      if [[ -n "${GITWO_SUPERVISED_CHILD:-}" ]]; then
+        ruby "$GITWO_DIR/supervisor.rb" verify-child "$target" "$log_dir" "$GITWO_SUPERVISED_CHILD" ||
+          gitwo_die 'Detached child does not match the active supervisor session'
+      else
+        [[ "$managed" != running* ]] || gitwo_die "Supervised launcher already running: $managed"
+      fi
+    fi
     [[ ! -L "$log_dir" ]] || gitwo_die "Unsafe runtime log directory: $log_dir"
     (umask 077; mkdir -p "$log_dir"; touch "$log_dir/puma.log")
     [[ -f "$log_dir/puma.log" && ! -L "$log_dir/puma.log" ]] || gitwo_die 'Unsafe Puma log path'

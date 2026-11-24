@@ -123,7 +123,7 @@ gitwo() {
       ;;
     up)
       if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
-        print -- 'Usage: gitwo up [WORKSPACE] [--launcher=auto|rails|bin-dev|foreman|overmind] [--dry-run] [--json]'
+        print -- 'Usage: gitwo up [WORKSPACE] [--launcher=auto|rails|bin-dev|foreman|overmind] [--dry-run] [--detach] [--json]'
         print -- 'Run the existing development launcher with isolated Rails/Redis and optional Portless.'
         return 0
       fi

@@ -63,6 +63,32 @@ The application is not rewritten as part of init.
 
 `issues.provider: none` accepts issue-style keys (e.g. `ENG-42`) without API calls; `gitwo new develop` creates sequential standalone experiment worktrees.
 
+## Frontend readiness evidence (opt-in)
+
+GitWO keeps frontend discovery and runtime health intentionally separate.
+`gitwo status --check-frontend --json` adds a structured
+`frontend_readiness` report, without modifying application files or starting
+services. Importmap returns `not_applicable`. Watcher/build-only pipelines
+inspect known Rails asset output directories and distinguish
+`no_build_artifacts` from `artifacts_observed`, but **do not claim that an
+active watcher compiled them during this session**.
+
+For a detected single Vite/Webpack dev server, supply an explicit local
+endpoint to verify real HTTP transport and optionally an RFC6455 WebSocket
+upgrade (this is **not** a full HMR functionality test):
+
+```sh
+gitwo status develop-1 --check-frontend --json
+gitwo status develop-1 --frontend-url=http://127.0.0.1:5173/@vite/client --hmr-url=ws://127.0.0.1:5173/ --json
+```
+
+Probes reject remote hosts, credentials, custom domains, mixed-content HTTPS
+with insecure WS and non-loopback DNS. HTTPS certificate verification stays
+enabled, including Portless's trusted local CA when available. Static detection
+never invokes project JS scripts. No implicit HMR URL or frontend port is
+guessed. Full process/asset/HMR readiness and multi-server runtime mapping
+remain work under [#19](https://github.com/gitwohq/gitwo-v2/issues/19).
+
 ## Frontend inventory (read-only)
 
 `gitwo detect --json` and `gitwo init` now inventory independent Rails frontend
@@ -81,6 +107,29 @@ verification for watchers. An esbuild watcher or Importmap project **does not
 need an HMR check**. A detected frontend is not proof that Gitwo can start it
 or that its build assets are ready; supervision and real readiness remain
 tracked under [#19](https://github.com/gitwohq/gitwo-v2/issues/19).
+
+## Detached process supervision (opt-in)
+
+`gitwo up --detach --json` launches a private process group owned by an
+independent Ruby supervisor. It returns a `starting` JSON event with workspace,
+launcher, PID, URL and an owner-private log path, **not** an HTTP/HMR readiness
+claim. `gitwo status [WORKSPACE] --json` reports the observed dev-stack
+supervision state, `gitwo logs --service=supervisor` shows captured output,
+and `gitwo down` terminates only the verified supervised process group before
+stopping its workspace services.
+
+A PID alone never authorizes a signal: Gitwo also validates process-group
+leadership, process start identity and a per-session token. Duplicate starts,
+foreign live PIDs, symlinked or malformed metadata, and stale/orphaned state
+fail closed without force-killing unknown processes.
+
+Detached mode currently supports Rails, Foreman and `bin/dev` that keep
+children in the launcher's process group. Detached Overmind is explicitly
+refused because tmux sessions may live outside that group. Foreground mode,
+ordinary Rails commands and manually started services remain available.
+Process-group escape by arbitrary scripts cannot be safely supervised by this
+adapter; full Overmind session ownership and automatic recovery stay in #19.
+The returned `starting` event never guarantees frontend build/HMR readiness.
 
 ## Runtime launcher (Rails, bin/dev, Foreman and Overmind)
 
