@@ -63,6 +63,32 @@ The application is not rewritten as part of init.
 
 `issues.provider: none` accepts issue-style keys (e.g. `ENG-42`) without API calls; `gitwo new develop` creates sequential standalone experiment worktrees.
 
+## Frontend readiness evidence (opt-in)
+
+GitWO keeps frontend discovery and runtime health intentionally separate.
+`gitwo status --check-frontend --json` adds a structured
+`frontend_readiness` report, without modifying application files or starting
+services. Importmap returns `not_applicable`. Watcher/build-only pipelines
+inspect known Rails asset output directories and distinguish
+`no_build_artifacts` from `artifacts_observed`, but **do not claim that an
+active watcher compiled them during this session**.
+
+For a detected single Vite/Webpack dev server, supply an explicit local
+endpoint to verify real HTTP transport and optionally an RFC6455 WebSocket
+upgrade (this is **not** a full HMR functionality test):
+
+```sh
+gitwo status develop-1 --check-frontend --json
+gitwo status develop-1 --frontend-url=http://127.0.0.1:5173/@vite/client --hmr-url=ws://127.0.0.1:5173/ --json
+```
+
+Probes reject remote hosts, credentials, custom domains, mixed-content HTTPS
+with insecure WS and non-loopback DNS. HTTPS certificate verification stays
+enabled, including Portless's trusted local CA when available. Static detection
+never invokes project JS scripts. No implicit HMR URL or frontend port is
+guessed. Full process/asset/HMR readiness and multi-server runtime mapping
+remain work under [#19](https://github.com/gitwohq/gitwo-v2/issues/19).
+
 ## Frontend inventory (read-only)
 
 `gitwo detect --json` and `gitwo init` now inventory independent Rails frontend
