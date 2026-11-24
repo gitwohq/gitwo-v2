@@ -212,6 +212,16 @@ fi
 grep -q 'Both Minitest and RSpec detected' "$work/test-auto.err"
 "$cli" status develop-1 --json > "$work/status-1.json"
 ruby -rjson -e 'x=JSON.parse(File.read(ARGV.fetch(0))); abort x.inspect unless x["data_source"] == "seeded" && x["test_db_check"] == "connected"' "$work/status-1.json"
+# Frontend probes are strictly opt-in and do not start JS processes or alter
+# the source worktree. Rails-only/Importmap fixtures need no HMR endpoint.
+"$cli" status develop-1 --check-frontend --json > "$work/frontend-readiness.json"
+ruby -rjson -e '
+  x=JSON.parse(File.read(ARGV.fetch(0)))
+  f=x.fetch("frontend_readiness")
+  abort x.inspect unless f["readiness"]=="not_verified" &&
+    f["scope"]=="read_only_transport_and_artifact_evidence" &&
+    f["status"]=="not_applicable"
+' "$work/frontend-readiness.json"
 [[ "$(fixture_psql develop-1 -d gitwo_fixture_develop_1_test -Atqc 'SELECT current_database()')" == gitwo_fixture_develop_1_test ]]
 [[ "$(fixture_psql develop-1 -d gitwo_fixture_develop_1_development -Atqc "SELECT COUNT(*) FROM widgets WHERE name='gitwo-e2e-seeded'")" == 1 ]]
 
