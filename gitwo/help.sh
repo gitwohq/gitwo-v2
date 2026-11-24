@@ -24,7 +24,7 @@ Workspace:
   checkout [WORKSPACE]           Change shell directory to worktree (alias: co, switch)
   base                           Change to the permanent develop worktree
   list [--json]                  List local Git worktrees (alias: ls)
-  status [WORKSPACE] [--json]    Read-only Git, DB and runtime status
+  status [WORKSPACE] [--json]    Read-only Git/DB and optional frontend transport checks
   up [WORKSPACE]                 Safely prepare and run the detected development launcher
   down [WORKSPACE]               Stop verified workspace-owned processes
   logs [WORKSPACE] [OPTIONS]     Read or follow service logs
@@ -114,7 +114,7 @@ Requires a stopped worktree with no tracked/untracked changes and typed confirma
 --delete-ignored can erase local secrets; --delete-db additionally drops two owned DBs.
 EOF
     ;;
-  status) printf 'Usage: gitwo status [WORKSPACE] [--json] [--check-http]\nInspect Git, DB, provenance and runtime without mutation.\n' ;;
+  status) printf 'Usage: gitwo status [WORKSPACE] [--json] [--check-http] [--check-frontend] [--frontend-url=URL] [--hmr-url=URL]\nRead-only frontend probes require explicit loopback endpoint URLs; asset presence and transport do not prove HMR or live watcher health.\n' ;;
   config) cat <<'EOF'
 Usage: gitwo config <show|path|validate|scope|use|init> [--json|local|team]
   show        Display effective nonsecret config (supports --json)
