@@ -121,6 +121,22 @@ module GitwoFrontendReadiness
     socket&.close
   end
 
+  def safe_artifact?(root, relative)
+    # Only inspect file type and path ownership, never contents. Production
+    # build output is often larger than the detector's 1 MB metadata limit.
+    parts = relative.split('/')
+    return false if parts.empty? || parts.any? { |part| part.empty? || part == '.' || part == '..' }
+    current = root
+    parts.each_with_index do |part, i|
+      current = File.join(current, part)
+      return false if File.symlink?(current)
+      return false if i < parts.length - 1 && !File.directory?(current)
+    end
+    File.file?(current)
+  rescue SystemCallError
+    false
+  end
+
   def safe_artifacts(root, integration, bundler)
     patterns = if integration == 'cssbundling-rails' || integration == 'tailwindcss-rails' ||
                   %w[tailwindcss sass postcss].include?(bundler)
@@ -133,7 +149,7 @@ module GitwoFrontendReadiness
     # Never descend into user-controlled symlinked directories.
     patterns.flat_map { |pattern| Dir.glob(File.join(root, pattern)) }.first(500).filter_map do |path|
       relative = path.delete_prefix("#{root}/")
-      relative if GitwoFrontendDetection.safe_file?(root, relative)
+      relative if safe_artifact?(root, relative)
     end.uniq.sort
   end
 
