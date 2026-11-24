@@ -36,6 +36,16 @@ module GitwoFrontendReadiness
     raise UnsafeTarget, "Invalid local frontend URL: #{error.message}"
   end
 
+  def verified_loopback_ip(value)
+    addresses = Addrinfo.getaddrinfo(value.host, value.port, nil, :STREAM)
+    raise UnsafeTarget, 'No local address resolved' if addresses.empty?
+    raise UnsafeTarget, 'Non-loopback DNS resolution refused' unless
+      addresses.all? { |entry| IPAddr.new(entry.ip_address).loopback? }
+    addresses.first.ip_address
+  rescue SocketError, ArgumentError => error
+    raise UnsafeTarget, "Cannot resolve local frontend: #{error.message}"
+  end
+
   def local_ca_file
     path = File.join(Dir.home, '.portless', 'ca.pem')
     return nil unless File.exist?(path)
@@ -46,6 +56,9 @@ module GitwoFrontendReadiness
 
   def http_probe(value)
     http = Net::HTTP.new(value.host, value.port, nil)
+    # Pin the verified loopback address to avoid DNS rebinding between the
+    # validation and the connection. The original hostname remains the TLS SNI.
+    http.ipaddr = verified_loopback_ip(value)
     http.open_timeout = 2
     http.read_timeout = 3
     if value.scheme == 'https'
@@ -67,7 +80,7 @@ module GitwoFrontendReadiness
 
   def websocket_probe(value)
     key = Base64.strict_encode64(SecureRandom.random_bytes(16))
-    socket = Socket.tcp(value.host, value.port, connect_timeout: 2)
+    socket = Socket.tcp(verified_loopback_ip(value), value.port, connect_timeout: 2)
     if value.scheme == 'wss'
       context = OpenSSL::SSL::SSLContext.new
       context.verify_mode = OpenSSL::SSL::VERIFY_PEER
@@ -141,6 +154,8 @@ module GitwoFrontendReadiness
     if http_url && ws_url
       raise UnsafeTarget, 'HMR host must match the verified frontend hostname' unless
         http_url.host.downcase == ws_url.host.downcase
+      raise UnsafeTarget, 'HTTPS frontend requires WSS for secure HMR transport' if
+        http_url.scheme == 'https' && ws_url.scheme != 'wss'
     end
     results = pipelines.map do |p|
       result = {
