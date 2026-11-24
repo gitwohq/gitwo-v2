@@ -190,6 +190,26 @@ selected Ruby's `bin/` directory to `PATH` without altering tracked files.
 - If direnv is not installed, direct commands are **not** claimed isolated;
   install/approve direnv before running destructive Rails DB tasks.
 
+## Frontend runtime evidence
+
+`gitwo status [WORKSPACE] --check-frontend --json` is an opt-in,
+read-only diagnostic after a launcher starts. It reports per-pipeline status:
+`not_applicable` for Importmap; `artifacts_observed` or
+`no_build_artifacts` for esbuild/Webpack/Tailwind watchers; and
+`not_configured` for asset dev servers without an explicit endpoint.
+
+Add `--frontend-url=http://127.0.0.1:PORT/PATH` to test a detected single
+dev server over HTTP; add `--hmr-url=ws://127.0.0.1:PORT/PATH` to test
+the RFC6455 upgrade handshake. HTTPS/WSS verifies certificates; URLs and
+resolved addresses must remain loopback. The probe never follows redirects
+or tunnels, and never changes a Vite/Webpack config.
+
+Results have a deliberately bounded meaning: HTTP/WS transport and existing
+build artifacts are **evidence**, not proof that a watcher is alive or HMR
+events work. `readiness: not_verified` remains explicit until the full
+readiness policy and runtime ownership checks in issue #19 are implemented.
+Do not use a successful transport probe to claim the entire frontend is ready.
+
 ## Frontend toolchain detection during onboarding
 
 Before choosing how a workspace is launched, inspect:
