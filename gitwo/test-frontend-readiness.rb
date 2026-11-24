@@ -121,6 +121,10 @@ Dir.mktmpdir('gitwo-readiness.') do |root|
 
   write(root, 'Gemfile', "gem 'rails'\ngem 'importmap-rails'\n")
   write(root, 'config/importmap.rb', 'pin "application"')
+  # The earlier Vite fixture leaves package.json and Procfile.dev in place.
+  # Remove them before asserting that this fixture is Importmap-only.
+  FileUtils.rm_f(File.join(root, 'package.json'))
+  FileUtils.rm_f(File.join(root, 'Procfile.dev'))
   assert(GitwoFrontendReadiness.probe(root)['status'] == 'not_applicable', 'no external JS watcher')
 end
 
