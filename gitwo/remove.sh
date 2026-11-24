@@ -54,6 +54,13 @@ if [[ -n "$ignored" && "$delete_ignored" != yes ]]; then
 fi
 
 # Check for any running owned Redis, Puma or Sidekiq before acting.
+supervisor_dir="$(_gitwo_runtime_dir "$target")"
+if [[ -f "$supervisor_dir/supervisor.json" || -L "$supervisor_dir/supervisor.json" ]]; then
+  supervised="$(ruby "$GITWO_DIR/supervisor.rb" status "$target" "$supervisor_dir")" ||
+    gitwo_die 'Supervisor ownership is unverified; refusing workspace removal'
+  [[ "$supervised" != running* && "$supervised" != stale* && "$supervised" != orphaned* ]] ||
+    gitwo_die "Managed development processes may still exist: $supervised. Run gitwo down and inspect."
+fi
 puma_status="$(gitwo_puma_status "$target")"
 redis_dev="$(gitwo_redis_process_status "$target" development)"
 redis_test="$(gitwo_redis_process_status "$target" test)"

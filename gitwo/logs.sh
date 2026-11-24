@@ -4,7 +4,8 @@ set -euo pipefail
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/_common.sh"
 source "$GITWO_DIR/_runtime.sh"
 usage() { cat <<'USAGE'
-Usage: gitwo logs [WORKSPACE] [--service=puma|rails|redis|sidekiq|all] [-f|--follow] [--lines=N]
+Usage: gitwo logs [WORKSPACE] [--service=supervisor|puma|rails|redis|sidekiq|all] [-f|--follow] [--lines=N]
+  --service=supervisor  Managed bin/dev, Foreman or Rails launcher output
   --service=puma     Puma output captured by Gitwo (available from v4.13)
   --service=rails    Rails log/development.log
   --service=redis    Development and test Redis logs
@@ -24,7 +25,7 @@ for arg in "$@"; do
     *) [[ -z "$selector" ]] || { usage >&2; exit 2; }; selector="$arg" ;;
   esac
 done
-case "$service" in puma|rails|redis|sidekiq|all) ;; *) gitwo_die "Invalid log service: $service" ;; esac
+case "$service" in supervisor|puma|rails|redis|sidekiq|all) ;; *) gitwo_die "Invalid log service: $service" ;; esac
 [[ "$lines" =~ ^[1-9][0-9]{0,5}$ ]] || gitwo_die 'Expected --lines=positive-integer (max 6 digits)'
 gitwo_check_source
 target="$(gitwo_resolve_path "$selector")"
@@ -39,6 +40,9 @@ append_log() {
   if [[ -f "$file" ]]; then files+=("$file"); fi
   return 0
 }
+if [[ "$service" == all || "$service" == supervisor ]]; then
+  append_log "$root/supervisor.log"
+fi
 if [[ "$service" == all || "$service" == puma ]]; then
   append_log "$root/puma.log"
 fi

@@ -24,8 +24,8 @@ Workspace:
   checkout [WORKSPACE]           Change shell directory to worktree (alias: co, switch)
   base                           Change to the permanent develop worktree
   list [--json]                  List local Git worktrees (alias: ls)
-  status [WORKSPACE] [--json]    Read-only Git, DB and runtime status
-  up [WORKSPACE]                 Safely prepare and run the detected development launcher
+  status [WORKSPACE] [--json]    Read-only Git/DB and optional frontend transport checks
+  up [WORKSPACE]                 Prepare and run or detach an owned development launcher
   down [WORKSPACE]               Stop verified workspace-owned processes
   logs [WORKSPACE] [OPTIONS]     Read or follow service logs
   remove [WORKSPACE] [OPTIONS]   Safely remove a worktree (DBs retained by default)
@@ -76,14 +76,18 @@ Usage: gitwo new feature [NAME|ISSUE] [OPTIONS]
 EOF
     ;;
   up) cat <<'EOF'
-Usage: gitwo up [WORKSPACE] [--launcher=auto|rails|bin-dev|foreman|overmind] [--dry-run] [--json]
+Usage: gitwo up [WORKSPACE] [--launcher=auto|rails|bin-dev|foreman|overmind] [--dry-run] [--detach] [--json]
 Detect and invoke the project's existing development launcher with isolated databases,
 Redis, PORT and Portless HTTPS (or a reserved direct HTTP port).
 Default selection: executable bin/dev, otherwise Procfile.dev via installed
 Overmind/Foreman, otherwise Rails server. Explicit --launcher=rails overrides.
 --dry-run [--json] inspects the plan without starting services.
 --json emits one machine-readable startup event; server logs go to stderr.
-Launching a running app is foreground-only. Stop with Ctrl-C.
+Foreground mode stops with Ctrl-C. Opt-in --detach starts an owned
+process-group supervisor and returns status: starting (NOT ready).
+Only Rails, bin/dev and Foreman support detached mode; Overmind/tmux is
+refused until a verified session adapter is available.
+Use gitwo status for supervision state and gitwo down for safe group stop.
 Vite HMR may require application-specific configuration behind HTTPS.
 Existing databases are never automatically overwritten; non-TTY adoption is refused.
 EOF
@@ -102,9 +106,9 @@ EOF
   checkout|co|switch) printf 'Usage: gitwo checkout [WORKSPACE]\nChange to feature worktree; prompts if ambiguous and interactive.\n' ;;
   base) printf 'Usage: gitwo base\nChange to the configured permanent source checkout.\n' ;;
   list|ls) printf 'Usage: gitwo list [--json]\nList linked Git worktrees.\n' ;;
-  down) printf 'Usage: gitwo down [WORKSPACE]\nStop verified Puma, Sidekiq, and Redis. Do not stop shared Portless.\n' ;;
+  down) printf 'Usage: gitwo down [WORKSPACE]\nStop an owned detached dev process group, or verified standalone Puma/Sidekiq and Redis. Shared Portless remains running.\n' ;;
   logs) cat <<'EOF'
-Usage: gitwo logs [WORKSPACE] [--service=puma|rails|redis|sidekiq|all] [--lines=N] [-f|--follow]
+Usage: gitwo logs [WORKSPACE] [--service=supervisor|puma|rails|redis|sidekiq|all] [--lines=N] [-f|--follow]
 Read only; no processes started.
 EOF
     ;;
@@ -114,7 +118,7 @@ Requires a stopped worktree with no tracked/untracked changes and typed confirma
 --delete-ignored can erase local secrets; --delete-db additionally drops two owned DBs.
 EOF
     ;;
-  status) printf 'Usage: gitwo status [WORKSPACE] [--json] [--check-http]\nInspect Git, DB, provenance and runtime without mutation.\n' ;;
+  status) printf 'Usage: gitwo status [WORKSPACE] [--json] [--check-http] [--check-frontend] [--frontend-url=URL] [--hmr-url=URL]\nRead-only frontend probes require explicit loopback endpoint URLs; asset presence and transport do not prove HMR or live watcher health.\n' ;;
   config) cat <<'EOF'
 Usage: gitwo config <show|path|validate|scope|use|init> [--json|local|team]
   show        Display effective nonsecret config (supports --json)

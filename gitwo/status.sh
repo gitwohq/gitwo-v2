@@ -4,13 +4,16 @@ set -euo pipefail
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/_common.sh"
 source "$GITWO_DIR/_runtime.sh"
 source "$GITWO_DIR/_lifecycle.sh"
-usage() { printf 'Usage: gitwo status [WORKSPACE] [--json] [--check-http]\nRead-only status. HTTP checks are opt-in.\n'; }
-selector='' format=text check_http=no
+usage() { printf 'Usage: gitwo status [WORKSPACE] [--json] [--check-http] [--check-frontend] [--frontend-url=URL] [--hmr-url=URL]\nRead-only status. Frontend transport/asset checks are opt-in.\n'; }
+selector='' format=text check_http=no check_frontend=no frontend_url='' hmr_url=''
 for arg in "$@"; do
   case "$arg" in
     --help|-h) usage; exit 0 ;;
     --json) format=json ;;
     --check-http) check_http=yes ;;
+    --check-frontend) check_frontend=yes ;;
+    --frontend-url=*) frontend_url="${arg#*=}"; check_frontend=yes ;;
+    --hmr-url=*) hmr_url="${arg#*=}"; check_frontend=yes ;;
     -*) gitwo_die "Unknown status flag: $arg" ;;
     *) [[ -z "$selector" ]] || { usage >&2; exit 2; }; selector="$arg" ;;
   esac
@@ -22,9 +25,20 @@ if [[ "$format" == json ]]; then
   # Reuse the same read-only inspection as the human display.
   status_args=("$target")
   [[ "$check_http" == no ]] || status_args+=(--check-http)
+  frontend_report=''
+  if [[ "$check_frontend" == yes ]]; then
+    frontend_args=("$target")
+    [[ -z "$frontend_url" ]] || frontend_args+=("--frontend-url=$frontend_url")
+    [[ -z "$hmr_url" ]] || frontend_args+=("--hmr-url=$hmr_url")
+    frontend_report="$(ruby "$GITWO_DIR/frontend-readiness.rb" "${frontend_args[@]}")" || exit $?
+  fi
   report='' exit_code=0
   report="$("$GITWO_DIR/status.sh" "${status_args[@]}" 2>/dev/null)" || exit_code=$?
-  GITWO_REPORT="$report" GITWO_EXIT_CODE="$exit_code" ruby -rjson -e '
+  if [[ -n "$frontend_report" ]]; then
+    frontend_status="$(GITWO_FRONTEND_JSON="$frontend_report" ruby -rjson -e 'puts JSON.parse(ENV.fetch("GITWO_FRONTEND_JSON")).fetch("status")')"
+    [[ "$frontend_status" != failed && "$frontend_status" != unverified ]] || exit_code=1
+  fi
+  GITWO_REPORT="$report" GITWO_EXIT_CODE="$exit_code" GITWO_FRONTEND_JSON="$frontend_report" ruby -rjson -e '
     lines=ENV.fetch("GITWO_REPORT").lines
     result={"status"=>ENV.fetch("GITWO_EXIT_CODE")=="0" ? "ok" : "degraded"}
     lines.each do |line|
@@ -33,6 +47,8 @@ if [[ "$format" == json ]]; then
       key=match[1].strip.downcase.tr(" ", "_")
       result[key]=match[2].strip
     end
+    frontend_json=ENV.fetch("GITWO_FRONTEND_JSON", "")
+    result["frontend_readiness"]=JSON.parse(frontend_json) unless frontend_json.empty?
     puts JSON.pretty_generate(result)
   '
   exit "$exit_code"
@@ -168,6 +184,14 @@ else
   field Redis 'invalid runtime metadata'
   failed=1
 fi
+supervisor_dir="$(_gitwo_runtime_dir "$target")"
+if [[ -f "$supervisor_dir/supervisor.json" || -L "$supervisor_dir/supervisor.json" ]]; then
+  supervised="$(ruby "$GITWO_DIR/supervisor.rb" status "$target" "$supervisor_dir")" ||
+    failed=1
+  field 'Dev stack' "${supervised:-unverified supervisor metadata}"
+else
+  field 'Dev stack' 'not supervised'
+fi
 field Puma "$(gitwo_puma_status "$target")"
 sidekiq_pids="$(gitwo_sidekiq_pids "$target")"
 if [[ -n "$sidekiq_pids" ]]; then field Sidekiq "running (PID $sidekiq_pids)"; else field Sidekiq stopped; fi
@@ -204,5 +228,17 @@ if [[ "$check_http" == yes ]]; then
       failed=1
     fi
   fi
+fi
+if [[ "$check_frontend" == yes ]]; then
+  frontend_args=("$target")
+  [[ -z "$frontend_url" ]] || frontend_args+=("--frontend-url=$frontend_url")
+  [[ -z "$hmr_url" ]] || frontend_args+=("--hmr-url=$hmr_url")
+  frontend_report="$(ruby "$GITWO_DIR/frontend-readiness.rb" "${frontend_args[@]}")" || exit $?
+  frontend_summary="$(GITWO_FRONTEND_JSON="$frontend_report" ruby -rjson -e '
+    x=JSON.parse(ENV.fetch("GITWO_FRONTEND_JSON"))
+    puts "#{x.fetch("status")} (#{x.fetch("checks").map { |p| "#{p.fetch("bundler")}: #{p.fetch("status")}" }.join(", ")})"
+  ')"
+  field 'Frontend readiness' "$frontend_summary"
+  [[ "$frontend_summary" != failed* && "$frontend_summary" != unverified* ]] || failed=1
 fi
 exit "$failed"
